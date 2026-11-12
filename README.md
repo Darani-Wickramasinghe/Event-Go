@@ -21,6 +21,8 @@ Open the localhost URL printed by Expo. Localhost or HTTPS is required for brows
 4. Reserve another free event to try cancellation before it starts. **Sunset Sessions** has a paid ticket preview with a calculated total.
 5. Use **Map** to search a city or request location access. Event Details shows event-hour weather when [Open-Meteo](https://open-meteo.com/en/docs) has data for the venue and date.
 
+The side menu opens your ticket history, a month calendar with selectable reservation dates, searchable saved events, and an inbox with an unread filter. In **Settings**, choose whether to see an in-app reminder 1, 24, or 48 hours before your event.
+
 Demo profiles, reservations, saved events, and moderation actions are stored on the current device or browser. QR check-in uses that same local data. The demo allows up to four places, one QR per place, and whole-booking cancellation before the event starts or a ticket is checked in. Reminders are in-app. Browser map tiles use [OpenStreetMap](https://www.openstreetmap.org/copyright). Set `EXPO_PUBLIC_MAP_TILE_URL` to override the tile endpoint with an equivalent attributed provider.
 
 A deployed version needs an authentication service, server-enforced roles, a shared database for capacity and check-in, and notification delivery. Use sample attendee names in this demo.

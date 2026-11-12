@@ -9,12 +9,15 @@ import { Copy, Page } from './src/components/FlowUI';
 import { defaultFilters } from './src/data/eventFilters';
 import { eventTime, registrationStatus, remainingPlaces } from './src/data/reservations';
 import { useEventoraData } from './src/data/useEventoraData';
+import CalendarScreen from './src/screens/CalendarScreen';
 import DiscoveryScreen from './src/screens/DiscoveryScreen';
 import EventDetailsScreen from './src/screens/EventDetailsScreen';
 import MapScreen from './src/screens/MapScreen';
+import NotificationsScreen from './src/screens/NotificationsScreen';
 import { AdminScreen, OrganizerScreen, ReportScreen } from './src/screens/OperationsScreen';
-import { DemoSignIn, NotificationsScreen, ProfileScreen, SettingsScreen, SideMenu } from './src/screens/ProfileScreen';
+import { DemoSignIn, ProfileScreen, SettingsScreen, SideMenu } from './src/screens/ProfileScreen';
 import ReservationScreen from './src/screens/ReservationScreen';
+import SavedEventsScreen from './src/screens/SavedEventsScreen';
 import { ReservationsList, TicketScreen } from './src/screens/TicketsScreen';
 import { colors, headingFont } from './src/theme';
 
@@ -105,12 +108,21 @@ function Eventora() {
     open('event', { eventId: item.id });
   }
 
-  function openProfilePage(name) {
-    if (!data.signedIn && ['registrations', 'calendar', 'notifications'].includes(name)) {
-      open('signIn', { next: { name } });
-    } else {
-      open(name);
-    }
+  function browseEvents() {
+    setPages([]);
+    setTab('Explore');
+  }
+
+  function openTicket(bookingId) {
+    open('ticket', { bookingId });
+  }
+
+  function markNoticesRead(ids) {
+    update((current) => ({
+      ...current,
+      notifications: current.notifications.map((item) => ids.includes(item.id) ? { ...item, read: true } : item),
+      readReminders: [...new Set([...current.readReminders, ...ids.filter((id) => id.startsWith('reminder-'))])],
+    }));
   }
 
   function toggleSave(eventId) {
@@ -143,7 +155,7 @@ function Eventora() {
           ?? (event.status === 'Cancelled' ? bookings.find((item) => item.eventId === event.id) : undefined);
         function book() {
           if (booking) {
-            open('ticket', { bookingId: booking.id });
+            openTicket(booking.id);
             return;
           }
           const next = { name: 'reservation', eventId: event.id, requestId: randomUUID() };
@@ -169,17 +181,18 @@ function Eventora() {
         const booking = bookings.find((item) => item.id === page.bookingId);
         const bookedEvent = events.find((item) => item.id === booking.eventId);
         return <TicketScreen key={booking.id} event={bookedEvent} booking={booking} confirmed={page.confirmed}
-          onCancel={cancel} onBack={goBack} onEvent={() => openEvent(bookedEvent)} onCalendar={() => open('calendar')} />;
+          onCancel={cancel} onBack={goBack} onEvent={() => openEvent(bookedEvent)}
+          onCalendar={() => open('calendar', { date: bookedEvent.startDate })} />;
       }
       case 'registrations':
+        return <ReservationsList bookings={bookings} events={events} onBack={goBack} onOpen={openTicket} onBrowse={browseEvents}
+          onSignIn={!data.signedIn && data.profile.name ? () => open('signIn') : undefined} />;
       case 'calendar':
-        return <ReservationsList key={page.name} bookings={bookings} events={events} calendar={page.name === 'calendar'} onBack={goBack}
-          onOpen={(bookingId) => open('ticket', { bookingId })} />;
+        return <CalendarScreen bookings={bookings} events={events} view={page} onChange={(view) => replace('calendar', view)}
+          onBack={goBack} onOpen={openTicket} onBrowse={browseEvents} />;
       case 'saved': {
-        const saved = events.filter((item) => data.savedIds.includes(item.id));
-        return <Page title="Saved Events" onBack={goBack}>
-          {saved.length ? saved.map((item) => renderEvent(item, true)) : <Copy>Tap an event’s bookmark to save it here.</Copy>}
-        </Page>;
+        const saved = [...data.savedIds].reverse().map((id) => events.find((item) => item.id === id)).filter(Boolean);
+        return <SavedEventsScreen events={saved} renderEvent={renderEvent} onBack={goBack} onBrowse={browseEvents} />;
       }
       case 'settings':
         return <SettingsScreen profile={data.profile} signedIn={data.signedIn} onBack={goBack}
@@ -187,10 +200,8 @@ function Eventora() {
           onSignOut={() => { update((current) => ({ ...current, signedIn: false })); setPages([]); }} />;
       case 'notifications':
         return <NotificationsScreen data={data} events={events} onBack={goBack}
-          onOpen={(eventId) => open('event', { eventId })}
-          onRead={(id) => update((current) => ({
-            ...current, notifications: current.notifications.map((item) => item.id === id ? { ...item, read: true } : item),
-          }))} />;
+          onSettings={() => open('settings')} onRead={markNoticesRead}
+          onOpen={({ bookingId, eventId }) => bookingId ? openTicket(bookingId) : open('event', { eventId })} />;
       case 'organizer':
         return <OrganizerScreen data={data} events={events} onBack={goBack} onSave={saveEvent}
           onStatus={setEventStatus} onScan={checkIn}
@@ -219,7 +230,7 @@ function Eventora() {
             nextEvent={nextEvent} />;
         }
         if (tab === 'Map') return <MapScreen events={publicEvents} renderEvent={renderEvent} onOpen={openEvent} city={data.profile.city} />;
-        return <ProfileScreen signedIn={data.signedIn} profile={data.profile} onOpen={openProfilePage} />;
+        return <ProfileScreen signedIn={data.signedIn} profile={data.profile} onOpen={open} />;
     }
   }
 
@@ -261,7 +272,7 @@ function Eventora() {
       {menuOpen && (
         <SideMenu onClose={() => setMenuOpen(false)} onOpen={(name) => {
           setMenuOpen(false);
-          openProfilePage(name);
+          open(name);
         }} />
       )}
     </View>

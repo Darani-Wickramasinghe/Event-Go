@@ -7,12 +7,13 @@ const storageKey = 'eventora-demo-v1';
 const initialState = {
   signedIn: false,
   demoDate: sriLankaDate(),
-  profile: { name: '', interests: [], city: 'Kelaniya', reminders: false },
+  profile: { name: '', interests: [], city: 'Kelaniya', reminders: false, reminderHours: 24 },
   savedIds: [],
   bookings: [],
   eventEdits: {},
   createdEvents: [],
   notifications: [],
+  readReminders: [],
   reports: [],
   organizerAccess: 'Not requested',
   audit: [],
@@ -29,7 +30,8 @@ export function useDemoStore() {
     let active = true;
     AsyncStorage.getItem(storageKey).then((saved) => {
       if (!active || !saved) return;
-      current.current = { ...initialState, ...JSON.parse(saved) };
+      const stored = JSON.parse(saved);
+      current.current = { ...initialState, ...stored, profile: { ...initialState.profile, ...stored.profile } };
       setData(current.current);
     }).catch(() => {
       if (active) setStorageWarning('Saved demo data could not be loaded.');

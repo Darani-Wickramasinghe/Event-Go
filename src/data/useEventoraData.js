@@ -29,7 +29,14 @@ export function useEventoraData() {
       const event = listEvents(current).find((item) => item.id === eventId);
       const booking = makeReservation(event, current.bookings, names, id, codes);
       if (current.bookings.some((item) => item.id === booking.id)) return current;
-      return { ...current, bookings: [booking, ...current.bookings] };
+      return {
+        ...current,
+        bookings: [booking, ...current.bookings],
+        notifications: [{
+          id: `confirmed-${booking.id}`, eventId, bookingId: booking.id, title: 'Reservation confirmed',
+          message: `${event.title} · ${event.date}`, read: false,
+        }, ...current.notifications],
+      };
     });
     return id;
   }
@@ -41,7 +48,14 @@ export function useEventoraData() {
       const event = listEvents(current).find((item) => item.id === booking.eventId);
       const reason = cancellationReason(event, booking);
       if (reason) throw new Error(reason);
-      return { ...current, bookings: current.bookings.map((item) => item.id === bookingId ? { ...item, status: 'Cancelled' } : item) };
+      return {
+        ...current,
+        bookings: current.bookings.map((item) => item.id === bookingId ? { ...item, status: 'Cancelled' } : item),
+        notifications: [{
+          id: `cancelled-${bookingId}`, eventId: event.id, bookingId, title: 'Reservation cancelled',
+          message: `${event.title} · Your places have been released.`, read: false,
+        }, ...current.notifications],
+      };
     });
   }
 

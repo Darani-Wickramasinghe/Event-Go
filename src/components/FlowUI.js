@@ -1,5 +1,5 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { colors, headingFont } from '../theme';
 
 export function Page({ title, onBack, children }) {
@@ -71,6 +71,7 @@ export function Choices({ label, options, selected, onSelect }) {
               accessibilityRole="button"
               accessibilityLabel={item}
               accessibilityState={{ selected: active }}
+              aria-pressed={Platform.OS === 'web' ? active : undefined}
               onPress={() => onSelect(item)}
               style={[styles.choice, active && styles.active]}
             >

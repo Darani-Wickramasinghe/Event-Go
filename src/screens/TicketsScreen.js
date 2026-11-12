@@ -2,34 +2,37 @@ import qrGenerator from 'qrcode-generator';
 import { useMemo, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { Action, Choices, Copy, Page, Panel } from '../components/FlowUI';
-import { bookingStatus, cancellationReason, sriLankaDate } from '../data/reservations';
+import { agendaEntries } from '../data/agenda';
+import { bookingStatus, cancellationReason } from '../data/reservations';
 
-export function ReservationsList({ bookings, events, calendar, onBack, onOpen }) {
-  const [filter, setFilter] = useState(calendar ? 'Upcoming' : 'All');
-  const options = ['Upcoming', 'Today', 'Past', 'Cancelled', 'Rescheduled'];
-  const today = sriLankaDate();
-  const entries = bookings.flatMap((booking) => {
-    const event = events.find((item) => item.id === booking.eventId);
-    if (!event) return [];
-    const status = bookingStatus(event, booking);
-    const past = status === 'Attended' || status === 'Past registration';
-    const period = status === 'Cancelled' ? 'Cancelled' : past ? 'Past' : event.startDate === today ? 'Today' : 'Upcoming';
-    const matches = filter === 'All' || filter === period || (filter === 'Rescheduled' && status === 'Rescheduled');
-    return matches ? [{ booking, event, status }] : [];
-  }).sort((first, second) => first.event.startDate.localeCompare(second.event.startDate));
+export function ReservationsList({ bookings, events, onBack, onOpen, onBrowse, onSignIn }) {
+  const [filter, setFilter] = useState('All');
+  const entries = agendaEntries(bookings, events);
+  const matches = entries.filter(({ period, status }) => filter === 'All' || filter === period || filter === status);
 
   return (
-    <Page title={calendar ? 'Calendar' : 'My Registrations & Tickets'} onBack={onBack}>
-      <Choices label="Show reservations" options={calendar ? options : ['All', ...options]} selected={[filter]} onSelect={setFilter} />
-      {entries.length === 0 && <Copy>No reservations in this view.</Copy>}
-      {entries.map(({ booking, event, status }) => (
-        <Panel key={booking.id} title={event.title}>
-          <Copy>{event.date} · {event.venue}</Copy>
-          <Copy>{status} · {booking.tickets.length} {booking.tickets.length === 1 ? 'place' : 'places'}</Copy>
-          <Action label={`View reservation for ${event.title}`} secondary onPress={() => onOpen(booking.id)} />
+    <Page title="My Registrations & Tickets" onBack={onBack}>
+      {entries.length > 0 && <Choices label="Show reservations" options={['All', 'Upcoming', 'Today', 'Past', 'Cancelled', 'Rescheduled']} selected={[filter]} onSelect={setFilter} />}
+      {matches.map((entry) => <ReservationCard key={entry.booking.id} entry={entry} onOpen={onOpen} />)}
+      {entries.length === 0 ? (
+        <Panel title="No reservations yet">
+          <Copy>Reserve a free place to find your ticket here.</Copy>
+          <Action label="Browse events" onPress={onBrowse} />
+          {onSignIn && <Action label="Reopen demo profile" secondary onPress={onSignIn} />}
         </Panel>
-      ))}
+      ) : matches.length === 0 && <Copy>No reservations match this filter.</Copy>}
     </Page>
+  );
+}
+
+export function ReservationCard({ entry, onOpen }) {
+  const { booking, event, status } = entry;
+  return (
+    <Panel title={event.title}>
+      <Copy>{event.date} · {event.venue}</Copy>
+      <Copy>{status} · {booking.tickets.length} {booking.tickets.length === 1 ? 'place' : 'places'}</Copy>
+      <Action label={`View reservation for ${event.title}`} secondary onPress={() => onOpen(booking.id)} />
+    </Panel>
   );
 }
 

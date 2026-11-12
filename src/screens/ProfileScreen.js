@@ -3,7 +3,6 @@ import { Modal, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Action, Choices, Copy, Field, Page, Panel } from '../components/FlowUI';
 import { categories } from '../data/events';
-import { bookingStatus, eventTime } from '../data/reservations';
 import { colors } from '../theme';
 
 export function DemoSignIn({ name, onSignIn, onBack }) {
@@ -74,37 +73,27 @@ export function SettingsScreen({ profile, signedIn, onSave, onSignOut, onBack })
 
   return (
     <Page title="Settings" onBack={onBack}>
-      {signedIn && (
-        <Field label="Display name" value={draft.name} maxLength={70} onChangeText={(name) => setDraft({ ...draft, name })} />
-      )}
-      <Field label="Home city" value={draft.city} maxLength={50} onChangeText={(city) => setDraft({ ...draft, city })} />
-      <Choices label="Interests" options={categories.slice(1).map((category) => category.label)} selected={draft.interests} onSelect={toggleInterest} />
-      <Choices label="In-app reminders" options={['On', 'Off']} selected={[draft.reminders ? 'On' : 'Off']} onSelect={(value) => setDraft({ ...draft, reminders: value === 'On' })} />
+      <Panel title="Profile and discovery">
+        {signedIn && (
+          <Field label="Display name" value={draft.name} maxLength={70} onChangeText={(name) => setDraft({ ...draft, name })} />
+        )}
+        <Field label="Home city" value={draft.city} maxLength={50} onChangeText={(city) => setDraft({ ...draft, city })} />
+        <Choices label="Interests" options={categories.slice(1).map((category) => category.label)} selected={draft.interests} onSelect={toggleInterest} />
+      </Panel>
+      <Panel title="Event reminders">
+        <Choices label="In-app reminders" options={['On', 'Off']} selected={[draft.reminders ? 'On' : 'Off']} onSelect={(value) => setDraft({ ...draft, reminders: value === 'On' })} />
+        {draft.reminders && (
+          <Choices
+            label="Remind me before the event"
+            options={['1 hour', '24 hours', '48 hours']}
+            selected={[draft.reminderHours === 1 ? '1 hour' : `${draft.reminderHours} hours`]}
+            onSelect={(value) => setDraft({ ...draft, reminderHours: parseInt(value, 10) })}
+          />
+        )}
+        <Copy>Reminders appear in the Notifications screen on this device.</Copy>
+      </Panel>
       <Action label="Save settings" disabled={!draft.city.trim() || (signedIn && !draft.name.trim())} onPress={() => onSave({ ...draft, name: draft.name.trim(), city: draft.city.trim() })} />
       {signedIn && <Action label="Sign out of demo profile" secondary onPress={onSignOut} />}
-    </Page>
-  );
-}
-
-export function NotificationsScreen({ data, events, onRead, onOpen, onBack }) {
-  const reminders = data.profile.reminders ? data.bookings.flatMap((booking) => {
-    const event = events.find((item) => item.id === booking.eventId);
-    if (!event || !['Confirmed', 'Rescheduled'].includes(bookingStatus(event, booking))) return [];
-    const untilStart = eventTime(event) - Date.now();
-    return untilStart > 0 && untilStart <= 86400000
-      ? [{ id: `reminder-${booking.id}`, eventId: event.id, title: `${event.title} starts within 24 hours`, message: event.date, read: true }]
-      : [];
-  }) : [];
-  const notices = [...data.notifications, ...reminders];
-  return (
-    <Page title="Notifications" onBack={onBack}>
-      {notices.length === 0 && <Copy>You’re all caught up.</Copy>}
-      {notices.map((notice) => (
-        <Panel title={notice.title} key={notice.id}>
-          <Copy>{notice.read ? '' : 'New · '}{notice.message}</Copy>
-          <Action label="Open event update" secondary onPress={() => { onRead(notice.id); onOpen(notice.eventId); }} />
-        </Panel>
-      ))}
     </Page>
   );
 }
