@@ -1,0 +1,65 @@
+export const categories = [
+  { label: 'All', icon: 'apps-outline', color: '#EAE7FF', ink: '#4438C7' },
+  { label: 'Music', icon: 'musical-notes-outline', color: '#FFE0D6', ink: '#9D3829' },
+  { label: 'IT', icon: 'code-slash-outline', color: '#D9FAEE', ink: '#11634D' },
+  { label: 'Food', icon: 'restaurant-outline', color: '#FFF0D3', ink: '#855309' },
+  { label: 'Art', icon: 'color-palette-outline', color: '#FFE1EF', ink: '#9B3566' },
+  { label: 'Education', icon: 'school-outline', color: '#DFEBFF', ink: '#254F9B' },
+  { label: 'Sports', icon: 'football-outline', color: '#E7F2D9', ink: '#415D24' },
+];
+
+// These sample events let us build and test the UI before the API is ready.
+export const events = [
+  {
+    id: 'sunset-sessions',
+    title: 'Sunset Sessions',
+    category: 'Music',
+    city: 'Colombo',
+    venue: 'Viharamahadevi Park',
+    day: '21',
+    date: 'Sat, 21 Nov · 5:30 PM',
+    price: 1500,
+    image: require('../../assets/music.jpg'),
+    description: 'Spend an evening outdoors with live sets from local artists. Bring a picnic blanket and arrive early to find your spot.',
+  },
+  {
+    id: 'tech-connect',
+    title: 'Tech Connect',
+    category: 'IT',
+    city: 'Kelaniya',
+    venue: 'University of Kelaniya',
+    day: '22',
+    date: 'Sun, 22 Nov · 10:00 AM',
+    price: 0,
+    image: require('../../assets/tech.jpg'),
+    description: 'Meet local developers, see student projects, and join a beginner-friendly discussion about building your first app.',
+  },
+  {
+    id: 'street-food-social',
+    title: 'Street Food Social',
+    category: 'Food',
+    city: 'Kelaniya',
+    venue: 'Kelaniya Public Grounds',
+    day: '28',
+    date: 'Sat, 28 Nov · 4:00 PM',
+    price: 0,
+    image: require('../../assets/food.jpg'),
+    description: 'Explore Sri Lankan street food and meet independent food vendors at an open-air market. Admission is free. Food is sold separately.',
+  },
+  {
+    id: 'weekend-gallery',
+    title: 'Weekend Gallery',
+    category: 'Art',
+    city: 'Kandy',
+    venue: 'Kandy City Centre',
+    day: '29',
+    date: 'Sun, 29 Nov · 11:00 AM',
+    price: 0,
+    image: require('../../assets/art.jpg'),
+    description: 'Discover work from emerging artists and hear the stories behind their pieces at this weekend exhibition.',
+  },
+];
+
+export function formatPrice(price) {
+  return price === 0 ? 'Free' : `LKR ${price.toLocaleString('en-LK')}`;
+}
