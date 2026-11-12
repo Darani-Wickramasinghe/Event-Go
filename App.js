@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { BackHandler, Pressable, ScrollView, StatusBar, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import EventCard from './src/components/EventCard';
+import { defaultFilters } from './src/data/eventFilters';
 import { events } from './src/data/events';
 import DiscoveryScreen from './src/screens/DiscoveryScreen';
 import EventDetailsScreen from './src/screens/EventDetailsScreen';
@@ -37,7 +38,7 @@ function Eventora() {
   const [savedIds, setSavedIds] = useState([]);
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState('All');
-  const [freeOnly, setFreeOnly] = useState(false);
+  const [filters, setFilters] = useState(defaultFilters);
 
   const isDiscovery = tab === 'Home' || tab === 'Explore';
   const purpleTop = isDiscovery && !selectedEvent;
@@ -95,8 +96,8 @@ function Eventora() {
                 setSearch={setSearch}
                 category={category}
                 setCategory={setCategory}
-                freeOnly={freeOnly}
-                setFreeOnly={setFreeOnly}
+                filters={filters}
+                setFilters={setFilters}
               />
             ) : (
               <ScrollView key={tab} contentContainerStyle={styles.otherPage}>

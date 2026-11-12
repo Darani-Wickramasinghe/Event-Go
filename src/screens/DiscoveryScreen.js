@@ -1,19 +1,15 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
-import EventCard from '../components/EventCard';
+import EventFiltersSheet from '../components/EventFiltersSheet';
+import { defaultFilters, filterEvents } from '../data/eventFilters';
 import { categories, events } from '../data/events';
 import { colors, headingFont } from '../theme';
 
-export default function DiscoveryScreen({ home, openExplore, renderEvent, openProfile, search, setSearch, category, setCategory, freeOnly, setFreeOnly }) {
+export default function DiscoveryScreen({ home, openExplore, renderEvent, openProfile, search, setSearch, category, setCategory, filters, setFilters }) {
   const [showFilters, setShowFilters] = useState(false);
-  const query = search.trim().toLowerCase();
-  const results = events.filter((event) => {
-    const searchable = [event.title, event.city, event.venue, event.category].join(' ').toLowerCase();
-    return searchable.includes(query)
-      && (category === 'All' || event.category === category)
-      && (!freeOnly || event.price === 0);
-  });
+  const results = filterEvents(events, search, category, filters);
+  const hasFilters = Object.keys(defaultFilters).some((key) => filters[key] !== defaultFilters[key]);
 
   function selectCategory(label) {
     setCategory(label);
@@ -23,7 +19,13 @@ export default function DiscoveryScreen({ home, openExplore, renderEvent, openPr
   function clearFilters() {
     setSearch('');
     setCategory('All');
-    setFreeOnly(false);
+    setFilters(defaultFilters);
+  }
+
+  function applyFilters(nextFilters, nextCategory) {
+    setFilters(nextFilters);
+    setCategory(nextCategory);
+    setShowFilters(false);
   }
 
   return (
@@ -79,9 +81,9 @@ export default function DiscoveryScreen({ home, openExplore, renderEvent, openPr
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="Filters"
-              accessibilityState={{ expanded: !home && showFilters }}
-              onPress={() => { openExplore(); setShowFilters(home || !showFilters); }}
-              style={[styles.filterButton, !home && (showFilters || freeOnly) && styles.filterActive]}
+              accessibilityState={{ expanded: showFilters }}
+              onPress={() => { openExplore(); setShowFilters(true); }}
+              style={[styles.filterButton, !home && (hasFilters || category !== 'All') && styles.filterActive]}
             >
               <Ionicons name="options-outline" size={23} color={colors.white} />
             </Pressable>
@@ -121,7 +123,7 @@ export default function DiscoveryScreen({ home, openExplore, renderEvent, openPr
             {events.map((event) => renderEvent(event))}
           </ScrollView>
 
-          <Pressable accessibilityRole="button" accessibilityLabel="Explore free events" onPress={() => { clearFilters(); setFreeOnly(true); openExplore(); }} style={styles.banner}>
+          <Pressable accessibilityRole="button" accessibilityLabel="Explore free events" onPress={() => { setSearch(''); setCategory('All'); setFilters({ ...defaultFilters, price: 'Free' }); openExplore(); }} style={styles.banner}>
             <View style={styles.bannerBody}>
               <Text style={styles.bannerTitle}>Free events</Text>
               <Text style={styles.bannerLink}>Explore free entry <Ionicons name="arrow-forward" size={14} /></Text>
@@ -140,21 +142,9 @@ export default function DiscoveryScreen({ home, openExplore, renderEvent, openPr
         </>
       ) : (
         <>
-          {showFilters && (
-            <Pressable
-              accessibilityRole="switch"
-              accessibilityLabel="Free events only"
-              accessibilityState={{ checked: freeOnly }}
-              onPress={() => setFreeOnly(!freeOnly)}
-              style={styles.filterRow}
-            >
-              <Text style={styles.filterLabel}>Free events only</Text>
-              <Ionicons name={freeOnly ? 'checkbox' : 'square-outline'} size={24} color={colors.purpleDark} />
-            </Pressable>
-          )}
           <View style={styles.sectionHeading}>
             <Text accessibilityRole="header" style={styles.sectionTitle}>{results.length} {results.length === 1 ? 'event' : 'events'}</Text>
-            {(query || category !== 'All' || freeOnly) && (
+            {(search.trim() || category !== 'All' || hasFilters) && (
               <Pressable accessibilityRole="button" onPress={clearFilters} style={styles.textButton}>
                 <Text style={styles.link}>Clear filters</Text>
               </Pressable>
@@ -166,11 +156,19 @@ export default function DiscoveryScreen({ home, openExplore, renderEvent, openPr
               <View style={styles.empty}>
                 <Ionicons name="search-outline" size={32} color={colors.purple} />
                 <Text accessibilityRole="header" style={styles.emptyTitle}>No matching events</Text>
-                <Text style={styles.emptyText}>Try a different city, event name, or category.</Text>
+                <Text style={styles.emptyText}>Try a different search or clear your filters.</Text>
               </View>
             )}
           </View>
         </>
+      )}
+      {showFilters && (
+        <EventFiltersSheet
+          filters={filters}
+          category={category}
+          onClose={() => setShowFilters(false)}
+          onApply={applyFilters}
+        />
       )}
     </ScrollView>
   );
@@ -245,11 +243,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center', borderRadius: 13, transform: [{ rotate: '-12deg' }],
   },
   list: { paddingHorizontal: 20, paddingBottom: 18, gap: 10 },
-  filterRow: {
-    marginHorizontal: 20, marginTop: 12, padding: 12, backgroundColor: colors.lavender,
-    borderRadius: 13, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-  },
-  filterLabel: { color: colors.ink, fontWeight: '700' },
   empty: { alignItems: 'center', gap: 7, padding: 30 },
   emptyTitle: { color: colors.ink, fontWeight: '800', fontSize: 17 },
   emptyText: { color: colors.muted, textAlign: 'center' },

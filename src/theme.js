@@ -1,6 +1,7 @@
 export const colors = {
   purple: '#5145E5',
   purpleDark: '#4438D2',
+  action: '#4D5CF2',
   lavender: '#EFEDFF',
   ink: '#171833',
   muted: '#626680',
