@@ -1,10 +1,8 @@
 # Eventora
 
-Eventora is a mobile event discovery app with Home, Explore, and event details using sample events. The Profile tab shows bookmarks for the current session. The Map tab lists venues and details link to external directions.
+Eventora is an Expo app for finding events, reserving free places, and checking in with a QR ticket. It uses the light theme from [Prelook Studio's EventHub UI kit](https://www.figma.com/design/T81sTwRQXenznSlaZy4LKO/Event-Booking-App--EventHub--Community---Community-?node-id=696-23686).
 
-In Explore, open Filters to narrow results by category, city, date range, price, or venue setting. Enter dates as `YYYY-MM-DD`, or leave either date blank. Apply filters updates the results. Choosing All in the category row clears the category while keeping the other filters.
-
-## Run locally
+## Run it locally
 
 Use Node.js 20.19 or newer.
 
@@ -13,16 +11,26 @@ npm ci
 npm run web
 ```
 
-For mobile, run `npm start` and use an Expo Go build compatible with Expo SDK 54 or an emulator.
+Open the localhost URL printed by Expo. Localhost or HTTPS is required for browser camera access and ticket code generation. For mobile, run `npm start` and use an Expo Go build compatible with SDK 54 or an emulator.
 
-## Start reading here
+## Try the demo
 
-- `App.js` switches tabs and holds the current event, applied filters, and bookmarks.
-- `src/screens/` contains discovery and event details.
-- `src/components/EventFiltersSheet.js` lets you edit filters and apply them together.
-- `src/data/eventFilters.js` checks dates and matches events against the search and filters.
-- `src/components/EventCard.js` is the shared card and bookmark button.
-- `src/data/events.js` contains sample events and categories.
-- `src/theme.js` defines shared colors. Event photos are in `assets/`.
+1. Open **Tech Connect**, choose **Reserve free places**, and set up a demo profile with a sample name.
+2. Select two places, enter the second attendee name, review, and confirm. Open each QR ticket and find the reservation in **Profile → Calendar**.
+3. Open **Profile → Organizer workspace** and request access. Approve it from **Admin workspace**. Return to the organizer workspace, open **Tech Connect**, and scan a QR or paste its demo ticket code. Submitting the same code twice shows that it has already been used.
+4. Reserve another free event to try cancellation before it starts. **Sunset Sessions** has a paid ticket preview with a calculated total.
+5. Use **Map** to search a city or request location access. Event Details shows event-hour weather when [Open-Meteo](https://open-meteo.com/en/docs) has data for the venue and date.
 
-The design follows the light theme of [Prelook Studio's EventHub UI kit](https://www.figma.com/design/T81sTwRQXenznSlaZy4LKO/Event-Booking-App--EventHub--Community---Community-?node-id=696-23686). Event photos are from Unsplash ([music](https://images.unsplash.com/photo-1501386761578-eac5c94b800a), [technology](https://images.unsplash.com/photo-1540575467063-178a50c2df87), [food](https://images.unsplash.com/photo-1555939594-58d7cb561ad1), and [art](https://images.unsplash.com/photo-1577720580479-7d839d829c73)).
+Demo profiles, reservations, saved events, and moderation actions are stored on the current device or browser. QR check-in uses that same local data. The demo allows up to four places, one QR per place, and whole-booking cancellation before the event starts or a ticket is checked in. Reminders are in-app. Browser map tiles use [OpenStreetMap](https://www.openstreetmap.org/copyright). Set `EXPO_PUBLIC_MAP_TILE_URL` to override the tile endpoint with an equivalent attributed provider.
+
+A deployed version needs an authentication service, server-enforced roles, a shared database for capacity and check-in, and notification delivery. Use sample attendee names in this demo.
+
+## Where to read the code
+
+- `App.js` handles tabs, screen navigation, and event links.
+- `src/screens/` holds the attendee, organizer, and admin screens.
+- `src/components/FlowUI.js` provides shared buttons, fields, and page headers. `src/theme.js` defines the palette.
+- `src/data/reservations.js` checks capacity, cancellation, and ticket status. `src/data/eventOperations.js` validates event edits and status changes.
+- `src/data/useDemoStore.js` saves the demo data. `src/data/useEventoraData.js` connects it to the app.
+
+Event photos are from Unsplash ([music](https://images.unsplash.com/photo-1501386761578-eac5c94b800a), [technology](https://images.unsplash.com/photo-1540575467063-178a50c2df87), [food](https://images.unsplash.com/photo-1555939594-58d7cb561ad1), and [art](https://images.unsplash.com/photo-1577720580479-7d839d829c73)).

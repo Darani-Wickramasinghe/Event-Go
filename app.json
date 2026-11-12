@@ -2,7 +2,12 @@
   "expo": {
     "name": "Eventora",
     "slug": "eventora",
+    "scheme": "eventora",
     "orientation": "portrait",
-    "userInterfaceStyle": "light"
+    "userInterfaceStyle": "light",
+    "plugins": [
+      ["expo-location", { "locationWhenInUsePermission": "Allow Eventora to show your location on the event map." }],
+      ["expo-camera", { "cameraPermission": "Allow Eventora to scan demo event tickets.", "recordAudioAndroid": false }]
+    ]
   }
 }

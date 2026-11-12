@@ -3,13 +3,17 @@ import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import EventFiltersSheet from '../components/EventFiltersSheet';
 import { defaultFilters, filterEvents } from '../data/eventFilters';
-import { categories, events } from '../data/events';
+import { categories } from '../data/events';
+import { eventTime } from '../data/reservations';
 import { colors, headingFont } from '../theme';
 
-export default function DiscoveryScreen({ home, openExplore, renderEvent, openProfile, search, setSearch, category, setCategory, filters, setFilters }) {
+export default function DiscoveryScreen({ home, openExplore, renderEvent, openProfile, openMenu, search, setSearch, category, setCategory, filters, setFilters, events, city, interests, nextEvent }) {
   const [showFilters, setShowFilters] = useState(false);
   const results = filterEvents(events, search, category, filters);
   const hasFilters = Object.keys(defaultFilters).some((key) => filters[key] !== defaultFilters[key]);
+  const upcoming = events.filter((event) => eventTime(event, event.endTime) > Date.now());
+  const nearby = upcoming.filter((event) => event.city.toLowerCase() === city.toLowerCase());
+  const recommended = upcoming.filter((event) => interests.includes(event.category));
 
   function selectCategory(label) {
     setCategory(label);
@@ -35,9 +39,9 @@ export default function DiscoveryScreen({ home, openExplore, renderEvent, openPr
         <View pointerEvents="none" style={styles.innerOrbit} />
         <View style={styles.top}>
           <View style={styles.brand}>
-            <View style={styles.mark}>
-              <Ionicons name="ticket" color={colors.purpleDark} size={20} />
-            </View>
+            <Pressable accessibilityRole="button" accessibilityLabel="Open menu" onPress={openMenu} style={styles.mark}>
+              <Ionicons name="menu" color={colors.purpleDark} size={24} />
+            </Pressable>
             <Text style={styles.wordmark}>eventora</Text>
           </View>
           <Pressable accessibilityRole="button" accessibilityLabel="Open profile" onPress={openProfile} style={styles.profile}>
@@ -48,7 +52,7 @@ export default function DiscoveryScreen({ home, openExplore, renderEvent, openPr
           {home && (
             <View style={styles.location}>
               <Ionicons name="location-outline" size={15} color="#BBFAE8" />
-              <Text style={styles.locationText}>Kelaniya, Sri Lanka</Text>
+              <Text style={styles.locationText}>{city}, Sri Lanka</Text>
             </View>
           )}
           <Text accessibilityRole="header" style={styles.heading}>{home ? 'Find your next event' : 'Explore events'}</Text>
@@ -112,6 +116,12 @@ export default function DiscoveryScreen({ home, openExplore, renderEvent, openPr
 
       {home ? (
         <>
+          {nextEvent && (
+            <>
+              <View style={styles.sectionHeading}><Text accessibilityRole="header" style={styles.sectionTitle}>Your next event</Text></View>
+              <View style={styles.list}>{renderEvent(nextEvent, true)}</View>
+            </>
+          )}
           <View style={styles.sectionHeading}>
             <Text accessibilityRole="header" style={styles.sectionTitle}>Upcoming events</Text>
             <Pressable accessibilityRole="button" accessibilityLabel="See all upcoming events" onPress={() => { clearFilters(); openExplore(); }} style={styles.textButton}>
@@ -120,7 +130,8 @@ export default function DiscoveryScreen({ home, openExplore, renderEvent, openPr
             </Pressable>
           </View>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.cards}>
-            {events.map((event) => renderEvent(event))}
+            {upcoming.map((event) => renderEvent(event))}
+            {upcoming.length === 0 && <Text style={styles.emptyText}>No upcoming events.</Text>}
           </ScrollView>
 
           <Pressable accessibilityRole="button" accessibilityLabel="Explore free events" onPress={() => { setSearch(''); setCategory('All'); setFilters({ ...defaultFilters, price: 'Free' }); openExplore(); }} style={styles.banner}>
@@ -134,11 +145,25 @@ export default function DiscoveryScreen({ home, openExplore, renderEvent, openPr
           </Pressable>
 
           <View style={styles.sectionHeading}>
-            <Text accessibilityRole="header" style={styles.sectionTitle}>Around Kelaniya</Text>
+            <Text accessibilityRole="header" style={styles.sectionTitle}>Around {city}</Text>
           </View>
           <View style={styles.list}>
-            {events.filter((event) => event.city === 'Kelaniya').map((event) => renderEvent(event, true))}
+            {nearby.map((event) => renderEvent(event, true))}
+            {nearby.length === 0 && <Text style={styles.emptyText}>No events in this city. Search another city in Explore.</Text>}
           </View>
+          {recommended.length > 0 && (
+            <>
+              <View style={styles.sectionHeading}><Text accessibilityRole="header" style={styles.sectionTitle}>Recommended for you</Text></View>
+              <View style={styles.list}>
+                {recommended.map((event) => (
+                  <View key={event.id}>
+                    <Text style={styles.link}>Because you like {event.category}</Text>
+                    {renderEvent(event, true)}
+                  </View>
+                ))}
+              </View>
+            </>
+          )}
         </>
       ) : (
         <>
@@ -190,7 +215,7 @@ const styles = StyleSheet.create({
   top: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   brand: { flexDirection: 'row', alignItems: 'center', gap: 9 },
   mark: {
-    width: 35, height: 35, borderRadius: 11, backgroundColor: '#BBFAE8',
+    width: 44, height: 44, borderRadius: 11, backgroundColor: '#BBFAE8',
     alignItems: 'center', justifyContent: 'center',
   },
   wordmark: { color: colors.white, fontSize: 23, fontFamily: headingFont, letterSpacing: -0.7 },

@@ -79,6 +79,7 @@ export default function EventFiltersSheet({ filters, category, onClose, onApply 
             </View>
             <FilterOptions label="Price" options={['Any', 'Free', 'Paid']} value={draft.price} onSelect={(value) => update('price', value)} />
             <FilterOptions label="Venue setting" options={['Any', 'Indoor', 'Outdoor']} value={draft.setting} onSelect={(value) => update('setting', value)} />
+            <FilterOptions label="Availability" options={['Any', 'Available']} value={draft.availability} onSelect={(value) => update('availability', value)} />
           </ScrollView>
           <View style={styles.actions}>
             <Pressable accessibilityRole="button" onPress={reset} style={[styles.action, styles.reset]}>

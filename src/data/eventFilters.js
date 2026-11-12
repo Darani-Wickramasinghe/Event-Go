@@ -4,6 +4,7 @@ export const defaultFilters = {
   to: '',
   price: 'Any',
   setting: 'Any',
+  availability: 'Any',
 };
 
 export function filterEvents(events, search, category, filters) {
@@ -18,7 +19,8 @@ export function filterEvents(events, search, category, filters) {
       && (!filters.from || event.startDate >= filters.from)
       && (!filters.to || event.startDate <= filters.to)
       && (filters.price === 'Any' || (filters.price === 'Free' ? event.price === 0 : event.price > 0))
-      && (filters.setting === 'Any' || event.setting === filters.setting);
+      && (filters.setting === 'Any' || event.setting === filters.setting)
+      && (filters.availability !== 'Available' || event.available);
   });
 }
 

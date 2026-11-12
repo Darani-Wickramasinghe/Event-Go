@@ -1,12 +1,35 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { Image, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useState } from 'react';
+import { Image, Linking, Platform, Pressable, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
 import { BookmarkButton } from '../components/EventCard';
+import EventWeather from '../components/EventWeather';
+import { Action, Copy } from '../components/FlowUI';
 import { formatPrice } from '../data/events';
 import { colors, headingFont } from '../theme';
 
-export default function EventDetailsScreen({ event, saved, onSave, onBack }) {
+export default function EventDetailsScreen({ event, saved, onSave, onBack, remaining, unavailable, booking, onBook, onReport }) {
+  const [message, setMessage] = useState('');
   const destination = encodeURIComponent(`${event.venue}, ${event.city}, Sri Lanka`);
   const directions = `https://www.google.com/maps/dir/?api=1&destination=${destination}`;
+  const bookingLabel = booking ? 'View my tickets' : event.price ? 'Preview tickets' : 'Reserve free places';
+
+  async function shareEvent() {
+    try {
+      if (Platform.OS === 'web') {
+        const url = new URL(window.location.href);
+        url.searchParams.set('event', event.id);
+        if (navigator.share) await navigator.share({ title: event.title, url: url.toString() });
+        else if (navigator.clipboard) {
+          await navigator.clipboard.writeText(url.toString());
+          setMessage('Event link copied.');
+        } else setMessage(url.toString());
+      } else {
+        await Share.share({ message: `${event.title} · ${event.date}\n${event.venue}, ${event.city}\neventora://event/${event.id}` });
+      }
+    } catch (failure) {
+      if (failure.name !== 'AbortError') setMessage('The event link could not be shared.');
+    }
+  }
 
   return (
     <ScrollView showsVerticalScrollIndicator={false}>
@@ -25,14 +48,19 @@ export default function EventDetailsScreen({ event, saved, onSave, onBack }) {
           <Text style={styles.price}>{formatPrice(event.price)}</Text>
         </View>
         <Text accessibilityRole="header" style={styles.title}>{event.title}</Text>
-        <Detail icon="calendar-outline" title={event.date} text="Sri Lanka time" />
+        <Detail icon="calendar-outline" title={event.date} text={`Ends at ${event.endTime} · Sri Lanka time`} />
         <Detail icon="location-outline" title={event.venue} text={`${event.city}, Sri Lanka`} />
+        <Detail icon="person-outline" title={event.organizer} text={`${event.setting} event`} />
+        <Action label={bookingLabel} icon="ticket-outline" disabled={!booking && !!unavailable} onPress={onBook} />
+        {!!unavailable && <Copy alert>{unavailable}{event.reason ? ` · ${event.reason}` : ''}</Copy>}
+        {!unavailable && !event.price && <Copy>{remaining === null ? 'Unlimited free admission' : `${remaining} free places available`}</Copy>}
         <Text accessibilityRole="header" style={styles.subtitle}>About the event</Text>
         <Text style={styles.description}>{event.description}</Text>
-        <Pressable accessibilityRole="link" accessibilityLabel="Get directions" onPress={() => Linking.openURL(directions)} style={styles.directions}>
-          <Ionicons name="navigate-outline" size={19} color={colors.white} />
-          <Text style={styles.directionsText}>Get directions</Text>
-        </Pressable>
+        <Action label="Get directions" icon="navigate-outline" secondary onPress={() => Linking.openURL(directions).catch(() => setMessage('Directions could not be opened. Use the venue address above.'))} />
+        <EventWeather event={event} />
+        <Action label="Share event" icon="share-social-outline" secondary onPress={shareEvent} />
+        <Action label="Report event" secondary onPress={onReport} />
+        {!!message && <Copy>{message}</Copy>}
       </View>
     </ScrollView>
   );
@@ -81,9 +109,4 @@ const styles = StyleSheet.create({
   detailTitle: { color: colors.ink, fontWeight: '700', fontSize: 15 },
   subtitle: { color: colors.ink, fontFamily: headingFont, fontSize: 21, marginTop: 5 },
   description: { color: colors.muted, fontSize: 14, lineHeight: 21 },
-  directions: {
-    minHeight: 51, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    gap: 8, borderRadius: 14, backgroundColor: colors.purple, marginTop: 4,
-  },
-  directionsText: { color: colors.white, fontSize: 15, fontWeight: '800' },
 });

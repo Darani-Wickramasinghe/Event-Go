@@ -20,6 +20,8 @@ export function BookmarkButton({ event, saved, onPress, style }) {
 }
 
 export default function EventCard({ event, saved, onOpen, onSave, compact = false }) {
+  const month = new Intl.DateTimeFormat('en', { month: 'short', timeZone: 'UTC' })
+    .format(new Date(event.startDate)).toUpperCase();
   return (
     <View style={[styles.card, compact && styles.compactCard]}>
       <Pressable
@@ -33,7 +35,7 @@ export default function EventCard({ event, saved, onOpen, onSave, compact = fals
           {!compact && (
             <View style={styles.dateBadge}>
               <Text style={styles.day}>{event.day}</Text>
-              <Text style={styles.month}>NOV</Text>
+              <Text style={styles.month}>{month}</Text>
             </View>
           )}
         </View>

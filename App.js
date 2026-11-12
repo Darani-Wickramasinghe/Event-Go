@@ -1,13 +1,21 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
+import { randomUUID } from 'expo-crypto';
 import { useFonts } from 'expo-font';
 import { useEffect, useState } from 'react';
-import { BackHandler, Pressable, ScrollView, StatusBar, StyleSheet, Text, View } from 'react-native';
+import { BackHandler, Linking, Pressable, StatusBar, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import EventCard from './src/components/EventCard';
+import { Copy, Page } from './src/components/FlowUI';
 import { defaultFilters } from './src/data/eventFilters';
-import { events } from './src/data/events';
+import { eventTime, registrationStatus, remainingPlaces } from './src/data/reservations';
+import { useEventoraData } from './src/data/useEventoraData';
 import DiscoveryScreen from './src/screens/DiscoveryScreen';
 import EventDetailsScreen from './src/screens/EventDetailsScreen';
+import MapScreen from './src/screens/MapScreen';
+import { AdminScreen, OrganizerScreen, ReportScreen } from './src/screens/OperationsScreen';
+import { DemoSignIn, NotificationsScreen, ProfileScreen, SettingsScreen, SideMenu } from './src/screens/ProfileScreen';
+import ReservationScreen from './src/screens/ReservationScreen';
+import { ReservationsList, TicketScreen } from './src/screens/TicketsScreen';
 import { colors, headingFont } from './src/theme';
 
 const tabs = [
@@ -34,30 +42,84 @@ export default function App() {
 
 function Eventora() {
   const [tab, setTab] = useState('Home');
-  const [selectedEvent, setSelectedEvent] = useState(null);
-  const [savedIds, setSavedIds] = useState([]);
+  const [pages, setPages] = useState([]);
+  const [menuOpen, setMenuOpen] = useState(false);
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState('All');
   const [filters, setFilters] = useState(defaultFilters);
+  const { data, ready, update, storageWarning, events, reserve, cancel, saveEvent, setEventStatus, checkIn } = useEventoraData();
+  const page = pages.at(-1);
+  const event = events.find((item) => item.id === page?.eventId);
+  const bookings = data.signedIn ? data.bookings : [];
+  const publicEvents = events.filter((item) => ['Published', 'Rescheduled', 'Closed'].includes(item.status))
+    .map((item) => ({ ...item, available: !registrationStatus(item, data.bookings) }));
+  const nextEvent = publicEvents.filter((item) => eventTime(item, item.endTime) > Date.now()
+    && bookings.some((booking) => booking.eventId === item.id && booking.status === 'Confirmed'))
+    .sort((first, second) => eventTime(first) - eventTime(second))[0];
 
   const isDiscovery = tab === 'Home' || tab === 'Explore';
-  const purpleTop = isDiscovery && !selectedEvent;
+  const purpleTop = isDiscovery && !page && ready;
 
   useEffect(() => {
-    if (!selectedEvent) return;
+    if (!page) return;
     const back = BackHandler.addEventListener('hardwareBackPress', () => {
-      setSelectedEvent(null);
+      goBack();
       return true;
     });
     return () => back.remove();
-  }, [selectedEvent]);
+  }, [page]);
+
+  useEffect(() => {
+    if (!ready) return;
+    let active = true;
+    function openLink(url) {
+      if (!active || !url) return;
+      let id;
+      try {
+        const parsed = new URL(url);
+        id = parsed.searchParams.get('event') ?? (/\/event\/([^/]+)$/.exec(parsed.pathname)?.[1]);
+        if (!id && parsed.protocol === 'eventora:' && parsed.hostname === 'event') id = parsed.pathname.slice(1);
+      } catch {
+        return;
+      }
+      if (publicEvents.some((item) => item.id === id)) setPages([{ name: 'event', eventId: id }]);
+    }
+    Linking.getInitialURL().then(openLink).catch(() => {});
+    const subscription = Linking.addEventListener('url', ({ url }) => openLink(url));
+    return () => { active = false; subscription.remove(); };
+  }, [ready]);
+
+  function open(name, params = {}) {
+    setPages((current) => [...current, { name, ...params }]);
+  }
+
+  function replace(name, params = {}) {
+    setPages((current) => [...current.slice(0, -1), { name, ...params }]);
+  }
+
+  function goBack() {
+    setPages((current) => current.slice(0, -1));
+  }
+
+  function openEvent(item) {
+    open('event', { eventId: item.id });
+  }
+
+  function openProfilePage(name) {
+    if (!data.signedIn && ['registrations', 'calendar', 'notifications'].includes(name)) {
+      open('signIn', { next: { name } });
+    } else {
+      open(name);
+    }
+  }
 
   function toggleSave(eventId) {
-    setSavedIds((current) => (
-      current.includes(eventId)
-        ? current.filter((id) => id !== eventId)
-        : [...current, eventId]
-    ));
+    update((current) => ({
+      ...current,
+      savedIds: current.savedIds.includes(eventId)
+        ? current.savedIds.filter((id) => id !== eventId)
+        : [...current.savedIds, eventId],
+    }));
   }
 
   function renderEvent(event, compact = false) {
@@ -66,11 +128,99 @@ function Eventora() {
         key={event.id}
         event={event}
         compact={compact}
-        saved={savedIds.includes(event.id)}
-        onOpen={() => setSelectedEvent(event)}
+        saved={data.savedIds.includes(event.id)}
+        onOpen={() => openEvent(event)}
         onSave={() => toggleSave(event.id)}
       />
     );
+  }
+
+  function renderPage() {
+    if (!ready) return <Page title="Eventora"><Copy>Loading your events…</Copy></Page>;
+    switch (page?.name) {
+      case 'event': {
+        const booking = bookings.find((item) => item.eventId === event.id && item.status === 'Confirmed')
+          ?? (event.status === 'Cancelled' ? bookings.find((item) => item.eventId === event.id) : undefined);
+        function book() {
+          if (booking) {
+            open('ticket', { bookingId: booking.id });
+            return;
+          }
+          const next = { name: 'reservation', eventId: event.id, requestId: randomUUID() };
+          if (data.signedIn || event.price > 0) open(next.name, next);
+          else open('signIn', { next });
+        }
+        return <EventDetailsScreen key={event.id} event={event} onBack={goBack}
+          saved={data.savedIds.includes(event.id)} onSave={() => toggleSave(event.id)}
+          remaining={remainingPlaces(event, data.bookings)} unavailable={registrationStatus(event, data.bookings)}
+          booking={booking} onBook={book} onReport={() => open('report', { eventId: event.id })} />;
+      }
+      case 'signIn':
+        return <DemoSignIn name={data.profile.name} onBack={goBack} onSignIn={(name) => {
+          update((current) => ({ ...current, signedIn: true, profile: { ...current.profile, name } }));
+          if (page.next) replace(page.next.name, page.next);
+          else goBack();
+        }} />;
+      case 'reservation':
+        return <ReservationScreen key={page.requestId} event={event} events={events} bookings={bookings}
+          remaining={remainingPlaces(event, data.bookings)} profile={data.profile} onBack={goBack}
+          onConfirm={(names) => replace('ticket', { bookingId: reserve(event.id, names, page.requestId), confirmed: true })} />;
+      case 'ticket': {
+        const booking = bookings.find((item) => item.id === page.bookingId);
+        const bookedEvent = events.find((item) => item.id === booking.eventId);
+        return <TicketScreen key={booking.id} event={bookedEvent} booking={booking} confirmed={page.confirmed}
+          onCancel={cancel} onBack={goBack} onEvent={() => openEvent(bookedEvent)} onCalendar={() => open('calendar')} />;
+      }
+      case 'registrations':
+      case 'calendar':
+        return <ReservationsList key={page.name} bookings={bookings} events={events} calendar={page.name === 'calendar'} onBack={goBack}
+          onOpen={(bookingId) => open('ticket', { bookingId })} />;
+      case 'saved': {
+        const saved = events.filter((item) => data.savedIds.includes(item.id));
+        return <Page title="Saved Events" onBack={goBack}>
+          {saved.length ? saved.map((item) => renderEvent(item, true)) : <Copy>Tap an event’s bookmark to save it here.</Copy>}
+        </Page>;
+      }
+      case 'settings':
+        return <SettingsScreen profile={data.profile} signedIn={data.signedIn} onBack={goBack}
+          onSave={(profile) => { update((current) => ({ ...current, profile })); goBack(); }}
+          onSignOut={() => { update((current) => ({ ...current, signedIn: false })); setPages([]); }} />;
+      case 'notifications':
+        return <NotificationsScreen data={data} events={events} onBack={goBack}
+          onOpen={(eventId) => open('event', { eventId })}
+          onRead={(id) => update((current) => ({
+            ...current, notifications: current.notifications.map((item) => item.id === id ? { ...item, read: true } : item),
+          }))} />;
+      case 'organizer':
+        return <OrganizerScreen data={data} events={events} onBack={goBack} onSave={saveEvent}
+          onStatus={setEventStatus} onScan={checkIn}
+          onApply={() => update((current) => ({ ...current, organizerAccess: 'Pending' }))} />;
+      case 'admin':
+        return <AdminScreen data={data} events={events} onBack={goBack}
+          onAccess={(status) => update((current) => ({
+            ...current, organizerAccess: status, audit: [`Organizer access · ${status}`, ...current.audit],
+          }))}
+          onStatus={(id, status, reason) => setEventStatus(id, status, reason, true)}
+          onReport={(id, status, resolution) => update((current) => ({
+            ...current,
+            reports: current.reports.map((item) => item.id === id ? { ...item, status, resolution } : item),
+            audit: [`Report · ${status}${resolution ? ` · ${resolution}` : ''}`, ...current.audit],
+          }))} />;
+      case 'report':
+        return <ReportScreen event={event} onBack={goBack} onSubmit={(reportCategory, note) => {
+          const report = { id: randomUUID(), eventId: event.id, category: reportCategory, note, status: 'Open' };
+          update((current) => ({ ...current, reports: [report, ...current.reports] }));
+        }} />;
+      default:
+        if (isDiscovery) {
+          return <DiscoveryScreen home={tab === 'Home'} openExplore={() => setTab('Explore')} openProfile={() => setTab('Profile')} openMenu={() => setMenuOpen(true)}
+            renderEvent={renderEvent} search={search} setSearch={setSearch} category={category} setCategory={setCategory}
+            filters={filters} setFilters={setFilters} events={publicEvents} city={data.profile.city} interests={data.profile.interests}
+            nextEvent={nextEvent} />;
+        }
+        if (tab === 'Map') return <MapScreen events={publicEvents} renderEvent={renderEvent} onOpen={openEvent} city={data.profile.city} />;
+        return <ProfileScreen signedIn={data.signedIn} profile={data.profile} onOpen={openProfilePage} />;
+    }
   }
 
   return (
@@ -79,46 +229,11 @@ function Eventora() {
       <View style={styles.shell}>
         <SafeAreaView edges={['top']} style={[styles.safeTop, purpleTop && styles.purpleTop]}>
           <View style={styles.content}>
-            {selectedEvent ? (
-              <EventDetailsScreen
-                event={selectedEvent}
-                saved={savedIds.includes(selectedEvent.id)}
-                onSave={() => toggleSave(selectedEvent.id)}
-                onBack={() => setSelectedEvent(null)}
-              />
-            ) : isDiscovery ? (
-              <DiscoveryScreen
-                home={tab === 'Home'}
-                openExplore={() => setTab('Explore')}
-                openProfile={() => setTab('Profile')}
-                renderEvent={renderEvent}
-                search={search}
-                setSearch={setSearch}
-                category={category}
-                setCategory={setCategory}
-                filters={filters}
-                setFilters={setFilters}
-              />
-            ) : (
-              <ScrollView key={tab} contentContainerStyle={styles.otherPage}>
-                <Text accessibilityRole="header" style={styles.pageTitle}>{tab}</Text>
-                {tab === 'Map' ? (
-                  <>
-                    <Text style={styles.help}>Browse event venues and open directions from an event.</Text>
-                    {events.map((event) => renderEvent(event, true))}
-                  </>
-                ) : (
-                  <>
-                    <Text accessibilityRole="header" style={styles.sectionTitle}>Saved events</Text>
-                    {events.filter((event) => savedIds.includes(event.id)).map((event) => renderEvent(event, true))}
-                    {savedIds.length === 0 && <Text style={styles.help}>Tap the bookmark on an event to save it here.</Text>}
-                  </>
-                )}
-              </ScrollView>
-            )}
+            {!!storageWarning && <Copy alert>{storageWarning}</Copy>}
+            {renderPage()}
           </View>
         </SafeAreaView>
-        {selectedEvent ? (
+        {page ? (
           <SafeAreaView edges={['bottom']} />
         ) : (
           <SafeAreaView edges={['bottom']} style={styles.navigation}>
@@ -143,6 +258,12 @@ function Eventora() {
           </SafeAreaView>
         )}
       </View>
+      {menuOpen && (
+        <SideMenu onClose={() => setMenuOpen(false)} onOpen={(name) => {
+          setMenuOpen(false);
+          openProfilePage(name);
+        }} />
+      )}
     </View>
   );
 }
@@ -162,8 +283,4 @@ const styles = StyleSheet.create({
   activeIcon: { backgroundColor: colors.lavender },
   tabLabel: { color: colors.muted, fontSize: 11, fontWeight: '600' },
   activeLabel: { color: colors.purpleDark, fontWeight: '800' },
-  otherPage: { padding: 20, gap: 12 },
-  pageTitle: { color: colors.ink, fontSize: 32, fontFamily: headingFont },
-  sectionTitle: { color: colors.ink, fontSize: 20, fontFamily: headingFont },
-  help: { color: colors.muted, fontSize: 14, lineHeight: 21 },
 });
