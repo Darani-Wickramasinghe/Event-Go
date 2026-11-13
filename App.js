@@ -15,7 +15,8 @@ import DiscoveryScreen from './src/screens/DiscoveryScreen';
 import EventDetailsScreen from './src/screens/EventDetailsScreen';
 import MapScreen from './src/screens/MapScreen';
 import NotificationsScreen from './src/screens/NotificationsScreen';
-import { AdminScreen, OrganizerScreen, ReportScreen } from './src/screens/OperationsScreen';
+import { AdminScreen, ReportScreen } from './src/screens/OperationsScreen';
+import { OrganizerScreen } from './src/screens/OrganizerScreen';
 import { ProfileScreen, SettingsScreen, SideMenu } from './src/screens/ProfileScreen';
 import ReservationScreen from './src/screens/ReservationScreen';
 import SavedEventsScreen from './src/screens/SavedEventsScreen';
@@ -215,7 +216,10 @@ function Eventora() {
       case 'organizer':
         return <OrganizerScreen data={data} events={events} onBack={goBack} onSave={saveEvent}
           onStatus={setEventStatus} onScan={checkIn}
-          onApply={() => update((current) => ({ ...current, organizerAccess: 'Pending' }))} />;
+          onApply={(organizerApplication) => update((current) => ({
+            ...current, organizerApplication, organizerAccess: 'Pending',
+            audit: [`Organizer application · ${organizerApplication.organization}`, ...current.audit],
+          }))} />;
       case 'admin':
         return <AdminScreen data={data} events={events} onBack={goBack}
           onAccess={(status) => update((current) => ({

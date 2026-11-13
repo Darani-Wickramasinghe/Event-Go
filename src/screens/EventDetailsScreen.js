@@ -56,6 +56,8 @@ export default function EventDetailsScreen({ event, saved, onSave, onBack, remai
         {!unavailable && !event.price && <Copy>{remaining === null ? 'Unlimited free admission' : `${remaining} free places available`}</Copy>}
         <Text accessibilityRole="header" style={styles.subtitle}>About the event</Text>
         <Text style={styles.description}>{event.description}</Text>
+        {!!event.eligibility && <Detail icon="information-circle-outline" title="Eligibility" text={event.eligibility} />}
+        {!!event.accessibility && <Detail icon="accessibility-outline" title="Accessibility" text={event.accessibility} />}
         <Action label="Get directions" icon="navigate-outline" secondary onPress={() => Linking.openURL(directions).catch(() => setMessage('Directions could not be opened. Use the venue address above.'))} />
         <EventWeather event={event} />
         <Action label="Share event" icon="share-social-outline" secondary onPress={shareEvent} />

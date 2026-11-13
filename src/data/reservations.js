@@ -19,6 +19,7 @@ export function remainingPlaces(event, bookings) {
 }
 
 export function registrationStatus(event, bookings, now = Date.now()) {
+  if (event.status === 'Archived') return 'Event archived';
   if (event.status === 'Cancelled') return 'Event cancelled';
   if (event.status === 'Draft' || event.status === 'Submitted' || event.status === 'Rejected') return 'Event unavailable';
   if (eventTime(event, event.endTime) <= now) return 'Event ended';

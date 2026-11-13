@@ -65,7 +65,7 @@ export function useEventoraData() {
       if (current.organizerAccess !== 'Approved') throw new Error('Organizer access is required.');
       const details = eventFromDraft(draft, id, current.bookings);
       if (!eventId) {
-        const event = { ...details, organizer: 'Eventora Demo Organizer', status: 'Draft' };
+        const event = { ...details, organizer: current.organizerApplication?.organization ?? 'Eventora Demo Organizer', status: 'Draft' };
         return { ...current, createdEvents: [...current.createdEvents, event] };
       }
       const event = listEvents(current).find((item) => item.id === id);
@@ -97,7 +97,10 @@ export function useEventoraData() {
         if (status === 'Published' && current.organizerAccess !== 'Approved') throw new Error('Approve the organizer before publishing.');
       } else {
         if (current.organizerAccess !== 'Approved') throw new Error('Organizer access is required.');
+        const ended = eventTime(event, event.endTime) <= Date.now();
+        const publicEvent = ['Published', 'Rescheduled', 'Closed'].includes(event.status);
         const allowed = ['Draft', 'Rejected'].includes(event.status) ? ['Submitted']
+          : event.status === 'Cancelled' || (publicEvent && ended) ? ['Archived']
           : ['Published', 'Rescheduled'].includes(event.status) ? ['Closed', 'Cancelled']
           : event.status === 'Closed' ? ['Cancelled'] : [];
         if (!allowed.includes(status)) throw new Error('This status change is unavailable.');

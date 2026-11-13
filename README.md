@@ -17,11 +17,18 @@ Open the localhost URL printed by Expo. Localhost or HTTPS is required for brows
 
 1. Open **Profile → Sign up** to create a demo account with a sample name and email, or start from **Tech Connect → Reserve free places**. Use the same email to log in again on this device.
 2. Select two places, enter the second attendee name, review, and confirm. Open each QR ticket and find the reservation in **Profile → Calendar**.
-3. Open **Profile → Organizer dashboard** and request access. Approve it from **Admin workspace**. Return to the dashboard, open **Tech Connect**, and scan a QR or paste its demo ticket code. Submitting the same code twice shows that it has already been used. **View attendees** shows each reserved place and its status.
+3. Open **Profile → Organizer dashboard → Request organizer access** and submit an organization name and description. Approve the application in **Admin workspace**. Return to the dashboard to find events by name and status.
 4. Reserve another free event to try cancellation before it starts. **Sunset Sessions** has a paid ticket preview with a calculated total.
 5. Use **Map** to search a city or request location access. Event Details shows event-hour weather when [Open-Meteo](https://open-meteo.com/en/docs) has data for the venue and date.
 
 The side menu opens your ticket history, a month calendar with selectable reservation dates, searchable saved events, and an inbox with an unread filter. In **Settings**, choose whether to see an in-app reminder 1, 24, or 48 hours before your event.
+
+### Organizer flow
+
+1. **Create event draft** → enter details and capacity → **Preview listing** → save the draft.
+2. Open the draft and choose **Submit for review**. Publish or return it with a reason from **Admin workspace**. A returned draft can be edited and resubmitted.
+3. Open a published event to edit its schedule or venue, search attendees, close registration, or open **Ticket check-in** to scan a QR or enter a demo code. Repeated check-in attempts are rejected.
+4. **Cancel event** requires a reason and confirmation. Completed or cancelled events can be archived, with registrations retained in history.
 
 Demo profiles, reservations, saved events, and moderation actions are stored on the current device or browser. QR check-in uses that same local data. The demo allows up to four places, one QR per place, and whole-booking cancellation before the event starts or a ticket is checked in. Reminders are in-app. Browser map tiles use [OpenStreetMap](https://www.openstreetmap.org/copyright). Set `EXPO_PUBLIC_MAP_TILE_URL` to override the tile endpoint with an equivalent attributed provider.
 
