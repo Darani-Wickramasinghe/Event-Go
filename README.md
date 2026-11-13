@@ -25,7 +25,9 @@ The side menu opens your ticket history, a month calendar with selectable reserv
 
 ### Organizer flow
 
-1. **Create event draft** → enter details and capacity → **Preview listing** → save the draft.
+Use **Overview** for event totals and review status, **Events** for the searchable catalog, **Attendees** for reservation lists, and **Check-in** for ticket validation.
+
+1. **Create event draft** → complete **Details**, **Schedule**, and **Admission** → preview and save the draft.
 2. Open the draft and choose **Submit for review**. Publish or return it with a reason from **Admin workspace**. A returned draft can be edited and resubmitted.
 3. Open a published event to edit its schedule or venue, search attendees, close registration, or open **Ticket check-in** to scan a QR or enter a demo code. Repeated check-in attempts are rejected.
 4. **Cancel event** requires a reason and confirmation. Completed or cancelled events can be archived, with registrations retained in history.

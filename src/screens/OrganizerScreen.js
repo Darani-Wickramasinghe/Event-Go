@@ -1,8 +1,10 @@
-import { useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import Ionicons from '@expo/vector-icons/Ionicons';
+import { useEffect, useState } from 'react';
+import { BackHandler, Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Action, Choices, Copy, Field, Page, Panel } from '../components/FlowUI';
 import TicketScanner from '../components/TicketScanner';
 import { categories, formatPrice } from '../data/events';
+import { eventFromDraft } from '../data/eventOperations';
 import { eventTime, remainingPlaces, reservedPlaces, sriLankaDate } from '../data/reservations';
 import { colors, headingFont } from '../theme';
 
@@ -16,6 +18,13 @@ const eventGroups = {
   Archived: ['Archived'],
 };
 
+const workspaceTabs = [
+  { label: 'Overview', icon: 'grid-outline' },
+  { label: 'Events', icon: 'calendar-outline' },
+  { label: 'Attendees', icon: 'people-outline' },
+  { label: 'Check-in', icon: 'qr-code-outline' },
+];
+
 function organizerEventStatus(event) {
   return eventGroups.Live.includes(event.status) && eventTime(event, event.endTime) <= Date.now()
     ? 'Completed'
@@ -25,36 +34,136 @@ function organizerEventStatus(event) {
 export function OrganizerScreen({ data, events, onApply, onSave, onStatus, onScan, onBack, onOpenAdmin, onOpenSettings }) {
   const [editor, setEditor] = useState(null);
   const [selected, setSelected] = useState(null);
+  const [tab, setTab] = useState('Overview');
   const [group, setGroup] = useState('All');
   const [query, setQuery] = useState('');
   const visibleEvents = events.filter((event) => (!eventGroups[group] || eventGroups[group].includes(organizerEventStatus(event)))
     && event.title.toLowerCase().includes(query.trim().toLowerCase()));
+  const live = events.filter((event) => eventGroups.Live.includes(organizerEventStatus(event)));
+  const upcoming = [...live].sort((first, second) => eventTime(first) - eventTime(second));
+  const attendeeEvents = events.filter((event) => !['Draft', 'Rejected', 'Submitted'].includes(event.status));
+  const review = events.filter(({ status }) => status === 'Submitted' || status === 'Rejected');
+  const organization = data.organizerApplication?.organization || data.profile.organization || 'Organizer dashboard';
+
+  function openEvent(event, screen = 'overview') {
+    setSelected({ id: event.id, screen });
+  }
+
+  useOrganizerBack(tab === 'Overview' ? onBack : () => setTab('Overview'), !editor && !selected && data.organizerAccess === 'Approved');
+
   if (data.organizerAccess !== 'Approved') {
     return <OrganizerAccess status={data.organizerAccess} application={data.organizerApplication} organizationName={data.profile.organization}
       onApply={onApply} onBack={onBack} onOpenAdmin={onOpenAdmin} onOpenSettings={onOpenSettings} />;
   }
-  if (editor) return <EventEditor event={editor} onBack={() => setEditor(null)} onSave={(draft) => { onSave(draft, editor.id); setEditor(null); }} />;
+  if (editor) return <EventEditor event={editor} bookings={data.bookings} onBack={() => setEditor(null)} onSave={(draft) => {
+    onSave(draft, editor.id);
+    if (!editor.id) { setGroup('Drafts'); setQuery(''); setTab('Events'); }
+    setEditor(null);
+  }} />;
   if (selected) {
-    const event = events.find((item) => item.id === selected);
-    return <ManageEvent event={event} bookings={data.bookings} onBack={() => setSelected(null)} onEdit={() => setEditor(event)} onStatus={onStatus} onScan={onScan} />;
+    const event = events.find((item) => item.id === selected.id);
+    return <ManageEvent key={event.id} event={event} initialScreen={selected.screen} bookings={data.bookings}
+      onBack={() => setSelected(null)} onEdit={() => setEditor(event)} onStatus={onStatus} onScan={onScan} />;
   }
   return (
-    <Page title="Organizer dashboard" onBack={onBack}>
-      <DashboardSummary events={events} bookings={data.bookings} />
-      <Action label="Create event draft" icon="add" onPress={() => setEditor({})} />
-      <Field label="Search my events" value={query} onChangeText={setQuery} placeholder="Event name" />
-      <Choices label="My events" options={Object.keys(eventGroups)} selected={[group]} onSelect={setGroup} />
-      {visibleEvents.map((event) => (
-        <Panel key={event.id} title={event.title}>
-          <Copy>{event.date} · {organizerEventStatus(event)}</Copy>
-          <Copy>{reservedPlaces(event, data.bookings)} reserved places</Copy>
-          <Action label={`Manage ${event.title}`} secondary onPress={() => setSelected(event.id)} />
-        </Panel>
-      ))}
-      {visibleEvents.length === 0 && <Copy>No events in this view.</Copy>}
-      <Action label="Admin workspace" secondary onPress={onOpenAdmin} />
-      <Action label="Settings" secondary onPress={onOpenSettings} />
-    </Page>
+    <View style={styles.workspace}>
+      <Page key={tab} title={tab === 'Overview' ? 'Organizer dashboard' : tab} onBack={tab === 'Overview' ? onBack : () => setTab('Overview')}>
+        {tab === 'Overview' && (
+          <>
+            <View style={styles.hero}>
+              <Ionicons name="business-outline" size={24} color={colors.white} />
+              <Text accessibilityRole="header" style={styles.heroTitle}>{organization}</Text>
+            </View>
+            <DashboardSummary events={events} bookings={data.bookings} />
+            <Action label="Create event draft" icon="add" onPress={() => setEditor({})} />
+            {review.length > 0 && <Section title="Review status">
+              {review.map((event) => <EventRow key={event.id} event={event} onPress={() => openEvent(event)} />)}
+            </Section>}
+            <Section title="Coming up">
+              {upcoming.slice(0, 3).map((event) => <EventRow key={event.id} event={event} onPress={() => openEvent(event)} />)}
+              {!upcoming.length && <Copy>Published events will appear here.</Copy>}
+            </Section>
+            <Section title="Workspace">
+              <NavRow label="Settings" icon="settings-outline" onPress={onOpenSettings} />
+              <NavRow label="Admin workspace" icon="shield-checkmark-outline" onPress={onOpenAdmin} />
+            </Section>
+          </>
+        )}
+        {tab === 'Events' && (
+          <>
+            <Action label="Create event draft" icon="add" onPress={() => setEditor({})} />
+            <Field label="Search my events" value={query} onChangeText={setQuery} placeholder="Event name" />
+            <Choices label="Event status" options={Object.keys(eventGroups)} selected={[group]} onSelect={setGroup} />
+            {visibleEvents.map((event) => (
+              <EventRow key={event.id} event={event} onPress={() => openEvent(event)}
+                detail={`${reservedPlaces(event, data.bookings)} reserved`} />
+            ))}
+            {!visibleEvents.length && <Copy>No events in this view.</Copy>}
+          </>
+        )}
+        {tab === 'Attendees' && (
+          <Section title="Choose an event">
+            {attendeeEvents.map((event) => (
+              <EventRow key={event.id} event={event} onPress={() => openEvent(event, 'attendees')}
+                detail={`${reservedPlaces(event, data.bookings)} reserved`} />
+            ))}
+            {!attendeeEvents.length && <Copy>Attendee lists appear after an event is published.</Copy>}
+          </Section>
+        )}
+        {tab === 'Check-in' && (
+          <Section title="Choose an event to check in">
+            {upcoming.map((event) => <EventRow key={event.id} event={event} onPress={() => openEvent(event, 'checkIn')} />)}
+            {!upcoming.length && <Copy>No live events available for check-in.</Copy>}
+          </Section>
+        )}
+      </Page>
+      <View style={styles.tabBar}>
+        {workspaceTabs.map(({ label, icon }) => (
+          <Pressable key={label} accessibilityRole="tab" accessibilityLabel={label} accessibilityState={{ selected: tab === label }}
+            onPress={() => setTab(label)} style={[styles.tab, tab === label && styles.activeTab]}>
+            <Ionicons name={icon} size={21} color={tab === label ? colors.purpleDark : colors.muted} />
+            <Text style={[styles.tabLabel, tab === label && styles.activeLabel]}>{label}</Text>
+          </Pressable>
+        ))}
+      </View>
+    </View>
+  );
+}
+
+function useOrganizerBack(onBack, enabled = true) {
+  useEffect(() => {
+    if (!enabled) return;
+    const subscription = BackHandler.addEventListener('hardwareBackPress', () => { onBack(); return true; });
+    return () => subscription.remove();
+  }, [onBack, enabled]);
+}
+
+function Section({ title, children }) {
+  return <View style={styles.section}><Text accessibilityRole="header" style={styles.sectionTitle}>{title}</Text>{children}</View>;
+}
+
+function EventRow({ event, detail, onPress }) {
+  return (
+    <Pressable accessibilityRole="button" accessibilityLabel={`Manage ${event.title}`} onPress={onPress}
+      style={({ pressed }) => [styles.eventRow, pressed && styles.pressed]}>
+      <Image source={event.image} style={styles.thumbnail} />
+      <View style={styles.rowBody}>
+        <Text style={styles.rowTitle}>{event.title}</Text>
+        <Text style={styles.rowMeta}>{event.date}</Text>
+        <Text style={styles.statusText}>{organizerEventStatus(event)}{detail ? ` · ${detail}` : ''}</Text>
+      </View>
+      <Ionicons name="chevron-forward" size={17} color={colors.muted} />
+    </Pressable>
+  );
+}
+
+function NavRow({ label, icon, onPress }) {
+  return (
+    <Pressable accessibilityRole="button" accessibilityLabel={label} onPress={onPress} style={styles.navRow}>
+      <Ionicons name={icon} size={21} color={colors.purpleDark} />
+      <Text style={[styles.rowTitle, styles.rowBody]}>{label}</Text>
+      <Ionicons name="chevron-forward" size={17} color={colors.muted} />
+    </Pressable>
   );
 }
 
@@ -62,12 +171,19 @@ function OrganizerAccess({ status, application, organizationName, onApply, onBac
   const [applying, setApplying] = useState(false);
   const [organization, setOrganization] = useState(application?.organization ?? organizationName ?? '');
   const [description, setDescription] = useState(application?.description ?? '');
+  const close = applying ? () => setApplying(false) : onBack;
+  useOrganizerBack(close);
   return (
-    <Page title={applying && status !== 'Pending' ? 'Organizer application' : 'Organizer dashboard'} onBack={applying && status !== 'Pending' ? () => setApplying(false) : onBack}>
-      <Panel title={`Organizer access · ${status}`}>
+    <Page title={applying ? 'Organizer application' : 'Organizer dashboard'} onBack={close}>
+      <View style={styles.hero}>
+        <Ionicons name="business-outline" size={26} color={colors.white} />
+        <Text accessibilityRole="header" style={styles.heroTitle}>{applying ? 'Tell us about your organization' : 'Organizer access'}</Text>
+        <Text style={styles.heroCopy}>{status === 'Not requested' ? 'Apply to publish events and manage admissions.' : `Organizer access · ${status}`}</Text>
+      </View>
+      {status !== 'Not requested' && <Panel>
         {status === 'Pending' ? <Copy>{application?.organization ? `${application.organization} · ` : ''}Your application is awaiting review in the Admin workspace.</Copy>
           : <Copy>{status === 'Suspended' ? 'Organizer access is suspended.' : 'Apply to publish events and manage registrations.'}</Copy>}
-      </Panel>
+      </Panel>}
       {applying && status !== 'Pending' ? (
         <>
           <Field label="Organization name" value={organization} onChangeText={setOrganization} maxLength={80} />
@@ -92,20 +208,20 @@ function DashboardSummary({ events, bookings }) {
     ['Checked in', bookings.flatMap((booking) => booking.tickets).filter((ticket) => ticket.checkedInAt).length],
   ];
   return (
-    <Panel title="Overview">
+    <Section title="Overview">
       <View style={styles.metrics}>
         {metrics.map(([label, count]) => (
           <View key={label} style={styles.metric}>
             <Text style={styles.count}>{count}</Text>
-            <Copy>{label}</Copy>
+            <Text style={styles.rowMeta}>{label}</Text>
           </View>
         ))}
       </View>
-    </Panel>
+    </Section>
   );
 }
 
-function EventEditor({ event, onSave, onBack }) {
+function EventEditor({ event, bookings, onSave, onBack }) {
   const [draft, setDraft] = useState({
     title: event.title ?? '', city: event.city ?? '', venue: event.venue ?? '',
     category: event.category ?? 'Music', setting: event.setting ?? 'Indoor', description: event.description ?? '',
@@ -116,7 +232,31 @@ function EventEditor({ event, onSave, onBack }) {
     eligibility: event.eligibility ?? '', accessibility: event.accessibility ?? '',
   });
   const [error, setError] = useState('');
-  const [review, setReview] = useState(false);
+  const [step, setStep] = useState(0);
+  const steps = ['Details', 'Schedule', 'Admission', 'Preview'];
+  const previous = step > 0 ? () => { setError(''); setStep(step - 1); } : onBack;
+  useOrganizerBack(previous);
+
+  function next() {
+    setError('');
+    if (step === 0 && (!draft.title.trim() || !draft.description.trim())) {
+      setError('Enter a title and description to continue.');
+      return;
+    }
+    if (step === 1 && (!draft.venue.trim() || !draft.city.trim())) {
+      setError('Enter a venue and city to continue.');
+      return;
+    }
+    if (step > 0) {
+      try {
+        eventFromDraft(step === 1 ? { ...draft, capacity: '', price: '0' } : draft, event.id, bookings);
+      } catch (failure) {
+        setError(failure.message);
+        return;
+      }
+    }
+    setStep(step + 1);
+  }
 
   function save() {
     try {
@@ -126,9 +266,10 @@ function EventEditor({ event, onSave, onBack }) {
     }
   }
 
-  if (review) {
+  if (step === 3) {
     return (
-      <Page title="Preview listing" onBack={() => setReview(false)}>
+      <Page title="Preview listing" onBack={previous}>
+        <EditorProgress step={step} steps={steps} />
         <Panel title={draft.title.trim() || 'Untitled event'}>
           <Copy>{draft.category} · {draft.setting}</Copy>
           <Copy>{draft.startDate} · {draft.startTime}–{draft.endTime} · Sri Lanka time</Copy>
@@ -140,43 +281,62 @@ function EventEditor({ event, onSave, onBack }) {
         </Panel>
         {!!error && <Copy alert>{error}</Copy>}
         <Action label={event.id ? 'Save event changes' : 'Save draft'} onPress={save} />
-        <Action label="Back to editing" secondary onPress={() => { setError(''); setReview(false); }} />
+        <Action label="Back to editing" secondary onPress={previous} />
       </Page>
     );
   }
 
   return (
-    <Page title={event.id ? 'Edit event' : 'New event draft'} onBack={onBack}>
-      <Field label="Event title" value={draft.title} maxLength={90} onChangeText={(title) => setDraft({ ...draft, title })} />
-      <Choices label="Category" options={categories.slice(1).map((category) => category.label)} selected={[draft.category]} onSelect={(category) => setDraft({ ...draft, category })} />
-      <Choices label="Venue setting" options={['Indoor', 'Outdoor']} selected={[draft.setting]} onSelect={(setting) => setDraft({ ...draft, setting })} />
-      {[
+    <Page key={step} title={event.id ? 'Edit event' : 'New event draft'} onBack={previous}>
+      <EditorProgress step={step} steps={steps} />
+      {step === 0 && (
+        <>
+          <Field label="Event title" value={draft.title} maxLength={90} onChangeText={(title) => setDraft({ ...draft, title })} />
+          <Choices label="Category" options={categories.slice(1).map((category) => category.label)} selected={[draft.category]} onSelect={(category) => setDraft({ ...draft, category })} />
+          <Choices label="Venue setting" options={['Indoor', 'Outdoor']} selected={[draft.setting]} onSelect={(setting) => setDraft({ ...draft, setting })} />
+          <Field label="Description" multiline maxLength={700} value={draft.description} onChangeText={(description) => setDraft({ ...draft, description })} />
+        </>
+      )}
+      {step === 1 && [
         ['City', 'city', 'Kelaniya'], ['Venue', 'venue', 'Venue name or address'],
         ['Latitude (optional)', 'latitude', '6.9737'], ['Longitude (optional)', 'longitude', '79.9153'],
         ['Date (YYYY-MM-DD)', 'startDate', 'YYYY-MM-DD'],
         ['Start time (HH:MM)', 'startTime', '10:00'], ['End time (HH:MM)', 'endTime', '12:00'],
-        ['Capacity (blank for unlimited)', 'capacity', 'Unlimited'], ['Price (LKR)', 'price', '0'],
       ].map(([label, key, placeholder]) => (
         <Field key={key} label={label} placeholder={placeholder} maxLength={100} value={draft[key]} onChangeText={(value) => setDraft({ ...draft, [key]: value })} />
       ))}
-      <Field label="Description" multiline maxLength={700} value={draft.description} onChangeText={(description) => setDraft({ ...draft, description })} />
-      <Field label="Eligibility (optional)" value={draft.eligibility} maxLength={200} onChangeText={(eligibility) => setDraft({ ...draft, eligibility })} />
-      <Field label="Accessibility (optional)" value={draft.accessibility} maxLength={200} onChangeText={(accessibility) => setDraft({ ...draft, accessibility })} />
-      {['Published', 'Rescheduled', 'Closed'].includes(event.status) && (
-        <Field label="Reason for schedule or venue changes" value={draft.reason} maxLength={240} onChangeText={(reason) => setDraft({ ...draft, reason })} />
+      {step === 2 && (
+        <>
+          <Field label="Capacity (blank for unlimited)" value={draft.capacity} keyboardType="number-pad" onChangeText={(capacity) => setDraft({ ...draft, capacity })} />
+          <Field label="Price (LKR)" value={draft.price} keyboardType="number-pad" onChangeText={(price) => setDraft({ ...draft, price })} />
+          <Field label="Eligibility (optional)" value={draft.eligibility} maxLength={200} onChangeText={(eligibility) => setDraft({ ...draft, eligibility })} />
+          <Field label="Accessibility (optional)" value={draft.accessibility} maxLength={200} onChangeText={(accessibility) => setDraft({ ...draft, accessibility })} />
+          {['Published', 'Rescheduled', 'Closed'].includes(event.status) && (
+            <Field label="Reason for schedule or venue changes" value={draft.reason} maxLength={240} onChangeText={(reason) => setDraft({ ...draft, reason })} />
+          )}
+        </>
       )}
       {!!error && <Copy alert>{error}</Copy>}
-      <Action label="Preview listing" secondary onPress={() => { setError(''); setReview(true); }} />
-      <Action label={event.id ? 'Save event changes' : 'Save draft'} onPress={save} />
+      <Action label={step === 2 ? 'Preview listing' : 'Continue'} icon="arrow-forward" onPress={next} />
     </Page>
   );
 }
 
-function ManageEvent({ event, bookings, onBack, onEdit, onStatus, onScan }) {
+function EditorProgress({ step, steps }) {
+  return <View style={styles.progress}>
+    <Text style={styles.statusText}>Step {step + 1} of {steps.length}</Text>
+    <Text accessibilityRole="header" style={styles.sectionTitle}>{steps[step]}</Text>
+    <View style={styles.progressTrack}>
+      {steps.map((label, index) => <View key={label} style={[styles.progressSegment, index <= step && styles.progressActive]} />)}
+    </View>
+  </View>;
+}
+
+function ManageEvent({ event, bookings, initialScreen, onBack, onEdit, onStatus, onScan }) {
   const [reason, setReason] = useState('');
   const [message, setMessage] = useState('');
   const [code, setCode] = useState('');
-  const [screen, setScreen] = useState('overview');
+  const [screen, setScreen] = useState(initialScreen);
   const [attendeeQuery, setAttendeeQuery] = useState('');
   const [attendeeStatus, setAttendeeStatus] = useState('All');
   const related = bookings.filter((booking) => booking.eventId === event.id);
@@ -192,6 +352,12 @@ function ManageEvent({ event, bookings, onBack, onEdit, onStatus, onScan }) {
   const visibleAttendees = attendees.filter((ticket) => (attendeeStatus === 'All' || ticket.status === attendeeStatus)
     && ticket.name.toLowerCase().includes(attendeeQuery.trim().toLowerCase()));
 
+  function back() {
+    if (screen === initialScreen) onBack();
+    else { setMessage(''); setScreen('overview'); }
+  }
+  useOrganizerBack(back);
+
   function update(status) {
     try {
       onStatus(event.id, status, reason);
@@ -205,11 +371,17 @@ function ManageEvent({ event, bookings, onBack, onEdit, onStatus, onScan }) {
 
   if (screen === 'attendees') {
     return (
-      <Page title="Attendees" onBack={() => setScreen('overview')}>
+      <Page title="Attendees" onBack={back}>
         <Panel title={event.title}><Copy>{reserved} reserved · {cancelled} cancelled · {checkedIn} checked in</Copy></Panel>
         <Field label="Search attendees" value={attendeeQuery} onChangeText={setAttendeeQuery} placeholder="Attendee name" />
         <Choices label="Ticket status" options={['All', 'Reserved', 'Checked in', 'Cancelled']} selected={[attendeeStatus]} onSelect={setAttendeeStatus} />
-        {visibleAttendees.map((ticket) => <Panel key={ticket.code} title={ticket.name}><Copy>{ticket.status}</Copy></Panel>)}
+        {visibleAttendees.map((ticket) => (
+          <View key={ticket.code} style={styles.navRow}>
+            <Ionicons name="person-circle-outline" size={25} color={colors.purpleDark} />
+            <Text style={[styles.rowTitle, styles.rowBody]}>{ticket.name}</Text>
+            <Text style={styles.statusText}>{ticket.status}</Text>
+          </View>
+        ))}
         {visibleAttendees.length === 0 && <Copy>{attendees.length ? 'No attendees match this search.' : 'No reservations for this event yet.'}</Copy>}
       </Page>
     );
@@ -217,8 +389,12 @@ function ManageEvent({ event, bookings, onBack, onEdit, onStatus, onScan }) {
 
   if (screen === 'checkIn') {
     return (
-      <Page title="Ticket check-in" onBack={() => setScreen('overview')}>
-        <Panel title={event.title}><Copy>{checkedIn} checked in · {reserved} reserved</Copy></Panel>
+      <Page title="Ticket check-in" onBack={back}>
+        <View style={styles.hero}>
+          <Ionicons name="qr-code-outline" size={30} color={colors.white} />
+          <Text accessibilityRole="header" style={styles.heroTitle}>{event.title}</Text>
+          <Text style={styles.heroCopy}>{checkedIn} checked in · {reserved} reserved</Text>
+        </View>
         <TicketScanner onScan={scan} onError={setMessage} />
         <Field label="Ticket code" value={code} autoCapitalize="none" onChangeText={setCode} maxLength={80} />
         <Action label="Validate ticket" disabled={!code.trim()} onPress={() => scan(code)} />
@@ -227,13 +403,17 @@ function ManageEvent({ event, bookings, onBack, onEdit, onStatus, onScan }) {
     );
   }
 
-  if (screen === 'cancel') {
+  if (screen === 'close' || screen === 'cancel') {
+    const cancelling = screen === 'cancel';
     return (
-      <Page title="Cancel event" onBack={() => { setMessage(''); setScreen('overview'); }}>
-        <Panel title={event.title}><Copy>{reserved} reserved places. Cancelling invalidates tickets and adds an in-app update for affected attendees.</Copy></Panel>
-        <Field label="Cancellation reason" value={reason} onChangeText={setReason} multiline maxLength={240} />
+      <Page title={cancelling ? 'Cancel event' : 'Close registration'} onBack={back}>
+        <Panel title={event.title}>
+          <Copy>{cancelling ? `${reserved} reserved places. Cancelling invalidates tickets and adds an in-app update for affected attendees.` : 'New reservations will close. Existing tickets stay valid for check-in.'}</Copy>
+        </Panel>
+        {cancelling && <Field label="Cancellation reason" value={reason} onChangeText={setReason} multiline maxLength={240} />}
         {!!message && <Copy alert>{message}</Copy>}
-        <Action label="Confirm event cancellation" disabled={!reason.trim()} onPress={() => update('Cancelled')} />
+        <Action label={cancelling ? 'Confirm event cancellation' : 'Confirm close registration'}
+          disabled={cancelling && !reason.trim()} onPress={() => update(cancelling ? 'Cancelled' : 'Closed')} />
       </Page>
     );
   }
@@ -250,21 +430,22 @@ function ManageEvent({ event, bookings, onBack, onEdit, onStatus, onScan }) {
 
   return (
     <Page title={event.title} onBack={onBack}>
-      <Panel title={organizerEventStatus(event)}>
+      <Image source={event.image} style={styles.eventCover} />
+      <Section title={organizerEventStatus(event)}>
         <Copy>{event.date} · {event.venue}</Copy>
         {!!event.reason && <Copy>{event.reason}</Copy>}
         <Copy>{reserved} reserved · {cancelled} cancelled · {checkedIn} checked in</Copy>
         <Copy>{remaining === null ? 'Unlimited capacity' : `${remaining} places remaining`}</Copy>
-      </Panel>
-      <Action label="View attendees" icon="people-outline" secondary onPress={() => setScreen('attendees')} />
-      {(!ended || !publicEvent) && ['Draft', 'Rejected', 'Published', 'Rescheduled', 'Closed'].includes(event.status) && <Action label="Edit event" secondary onPress={onEdit} />}
+      </Section>
+      <NavRow label="View attendees" icon="people-outline" onPress={() => setScreen('attendees')} />
+      {(!ended || !publicEvent) && ['Draft', 'Rejected', 'Published', 'Rescheduled', 'Closed'].includes(event.status) && <NavRow label="Edit event" icon="create-outline" onPress={onEdit} />}
       {['Draft', 'Rejected'].includes(event.status) && <Action label="Submit for review" onPress={() => update('Submitted')} />}
       {event.status === 'Submitted' && <Copy>Awaiting review in the Admin workspace.</Copy>}
       {publicEvent && !ended && (
         <>
           <Action label="Open ticket check-in" icon="qr-code-outline" onPress={() => { setMessage(''); setScreen('checkIn'); }} />
           <Panel title="Registration">
-            {event.status !== 'Closed' && <Action label="Close registration" secondary onPress={() => update('Closed')} />}
+            {event.status !== 'Closed' && <Action label="Close registration" secondary onPress={() => { setMessage(''); setScreen('close'); }} />}
             <Action label="Cancel event" secondary onPress={() => { setMessage(''); setScreen('cancel'); }} />
           </Panel>
         </>
@@ -276,7 +457,34 @@ function ManageEvent({ event, bookings, onBack, onEdit, onStatus, onScan }) {
 }
 
 const styles = StyleSheet.create({
-  metrics: { flexDirection: 'row', flexWrap: 'wrap', rowGap: 12 },
-  metric: { width: '50%', paddingRight: 8 },
-  count: { color: colors.purpleDark, fontFamily: headingFont, fontSize: 25 },
+  workspace: { flex: 1, backgroundColor: colors.white },
+  hero: { backgroundColor: colors.purpleDark, borderRadius: 20, padding: 20, gap: 9 },
+  heroTitle: { color: colors.white, fontSize: 25, fontFamily: headingFont },
+  heroCopy: { color: colors.white, fontSize: 14, lineHeight: 20 },
+  section: { gap: 9 },
+  sectionTitle: { color: colors.ink, fontFamily: headingFont, fontSize: 18 },
+  eventRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 82, paddingVertical: 10,
+    borderBottomWidth: 1, borderColor: colors.line,
+  },
+  thumbnail: { width: 57, height: 57, borderRadius: 10, backgroundColor: colors.lavender },
+  rowBody: { flex: 1, gap: 4, minWidth: 0 },
+  rowTitle: { color: colors.ink, fontSize: 15, fontWeight: '700' },
+  rowMeta: { color: colors.muted, fontSize: 13, lineHeight: 18 },
+  statusText: { color: colors.purpleDark, fontSize: 12, fontWeight: '700' },
+  navRow: { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 48, paddingVertical: 8, borderBottomWidth: 1, borderColor: colors.line },
+  pressed: { backgroundColor: colors.lavender },
+  tabBar: { flexDirection: 'row', padding: 7, gap: 3, borderTopWidth: 1, borderColor: colors.line },
+  tab: { flex: 1, minHeight: 52, alignItems: 'center', justifyContent: 'center', gap: 3, borderRadius: 12 },
+  activeTab: { backgroundColor: colors.lavender },
+  tabLabel: { color: colors.muted, fontSize: 11, fontWeight: '700' },
+  activeLabel: { color: colors.purpleDark },
+  metrics: { flexDirection: 'row', flexWrap: 'wrap', backgroundColor: '#F5F4FF', borderRadius: 15, padding: 14, rowGap: 14 },
+  metric: { width: '50%', paddingRight: 8, gap: 2 },
+  count: { color: colors.purpleDark, fontFamily: headingFont, fontSize: 24 },
+  progress: { gap: 8 },
+  progressTrack: { flexDirection: 'row', gap: 6 },
+  progressSegment: { flex: 1, height: 4, borderRadius: 2, backgroundColor: colors.line },
+  progressActive: { backgroundColor: colors.action },
+  eventCover: { width: '100%', height: 150, borderRadius: 16, backgroundColor: colors.lavender },
 });
