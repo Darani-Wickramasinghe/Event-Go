@@ -52,11 +52,12 @@ export default function EventDetailsScreen({ event, saved, onSave, onBack, remai
             <Pressable accessibilityRole="button" accessibilityLabel="Back to events" onPress={onBack} style={styles.toolbarButton}>
               <Ionicons name="chevron-back" size={24} color={colors.white} />
             </Pressable>
-            <Text style={styles.toolbarTitle}>Event details</Text>
-            <Pressable accessibilityRole="button" accessibilityLabel="Share event" onPress={shareEvent} style={styles.toolbarButton}>
-              <Ionicons name="share-outline" size={23} color={colors.white} />
-            </Pressable>
-            <BookmarkButton event={event} saved={saved} onPress={onSave} style={styles.toolbarButton} color={colors.white} />
+            <View style={styles.toolbarActions}>
+              <Pressable accessibilityRole="button" accessibilityLabel="Share event" onPress={shareEvent} style={styles.toolbarButton}>
+                <Ionicons name="share-outline" size={23} color={colors.white} />
+              </Pressable>
+              <BookmarkButton event={event} saved={saved} onPress={onSave} style={styles.toolbarButton} color={colors.white} />
+            </View>
           </View>
         </View>
         <View style={styles.content}>
@@ -142,9 +143,9 @@ const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.white },
   toolbar: {
     position: 'absolute', top: 0, left: 0, right: 0, flexDirection: 'row', alignItems: 'center',
-    paddingHorizontal: 12, minHeight: 54, backgroundColor: 'rgba(16, 13, 30, 0.64)',
+    justifyContent: 'space-between', paddingHorizontal: 12, minHeight: 54,
   },
-  toolbarTitle: { flex: 1, color: colors.white, fontSize: 15, fontWeight: '700', marginLeft: 4 },
+  toolbarActions: { flexDirection: 'row', alignItems: 'center' },
   toolbarButton: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center', backgroundColor: 'transparent' },
   cover: { width: '100%', height: 300, backgroundColor: colors.lavender },
   image: { width: '100%', height: '100%' },
