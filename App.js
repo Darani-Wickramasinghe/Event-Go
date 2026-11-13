@@ -289,16 +289,16 @@ function Eventora({ fontsReady }) {
 
   return (
     <View style={styles.background}>
-      <StatusBar barStyle={purpleTop ? 'light-content' : 'dark-content'} />
+      <StatusBar barStyle={!role || purpleTop ? 'light-content' : 'dark-content'} />
       <View style={styles.shell}>
-        <SafeAreaView edges={['top']} style={[styles.safeTop, purpleTop && styles.purpleTop]}>
+        <SafeAreaView edges={role ? ['top'] : ['top', 'bottom']} style={[styles.safeTop, purpleTop && styles.purpleTop, !role && styles.welcomeSafeArea]}>
           <View style={styles.content}>
             {!!storageWarning && <Copy alert>{storageWarning}</Copy>}
             {renderPage()}
           </View>
         </SafeAreaView>
         {page || role !== 'attendee' ? (
-          <SafeAreaView edges={['bottom']} />
+          role && <SafeAreaView edges={['bottom']} />
         ) : (
           <SafeAreaView edges={['bottom']} style={styles.navigation}>
             {tabs.map(({ label, icon }) => {
@@ -337,6 +337,7 @@ const styles = StyleSheet.create({
   shell: { flex: 1, width: '100%', maxWidth: 520, backgroundColor: colors.white },
   safeTop: { flex: 1, backgroundColor: colors.white },
   purpleTop: { backgroundColor: colors.purple },
+  welcomeSafeArea: { backgroundColor: '#121031' },
   content: { flex: 1, backgroundColor: colors.white },
   navigation: {
     flexDirection: 'row', borderTopWidth: 1, borderColor: colors.line,
