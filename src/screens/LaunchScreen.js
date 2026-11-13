@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { AccessibilityInfo, Animated, Easing, Image, Platform, StyleSheet, View } from 'react-native';
+import { AccessibilityInfo, Animated, Easing, Platform, StyleSheet, View } from 'react-native';
+import EventoraLogo from '../components/EventoraLogo';
 import { colors } from '../theme';
 
 const launchDuration = 5000;
@@ -50,7 +51,7 @@ export default function LaunchScreen({ ready, onLayout, onFinish }) {
   return (
     <View onLayout={onLayout} accessibilityLabel="Loading Eventora" accessibilityRole="progressbar" style={styles.screen}>
       <View style={styles.brand}>
-        <Image source={require('../../assets/eventora-launch-logo.png')} style={styles.logo} resizeMode="contain" />
+        <EventoraLogo style={styles.logo} />
         <Animated.View style={[styles.ring, {
           transform: [{ rotate: spin.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] }) }],
         }]} />

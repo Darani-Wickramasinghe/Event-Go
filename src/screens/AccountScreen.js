@@ -1,8 +1,7 @@
 import { useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
-import EventoraMark from '../components/EventoraMark';
+import { StyleSheet, View } from 'react-native';
+import EventoraLogo from '../components/EventoraLogo';
 import { Action, Copy, Field, Page } from '../components/FlowUI';
-import { colors, headingFont } from '../theme';
 
 export default function AccountScreen({ signUp, role, profile, onContinue, onSwitch, onBack }) {
   const [name, setName] = useState(profile.name);
@@ -29,8 +28,7 @@ export default function AccountScreen({ signUp, role, profile, onContinue, onSwi
   return (
     <Page title={title} onBack={onBack}>
       <View style={styles.brand}>
-        <EventoraMark />
-        <Text style={styles.wordmark}>Eventora</Text>
+        <EventoraLogo style={styles.logo} />
       </View>
       <Copy>{organizer ? 'Event organizer' : 'Attendee'} · {signUp ? 'Create a demo profile on this device. All fields are required.' : 'Use the email from your demo profile on this device.'}</Copy>
       {signUp && <Field label="Full name" value={name} onChangeText={setName} autoCapitalize="words" autoComplete="name" maxLength={70} />}
@@ -46,6 +44,6 @@ export default function AccountScreen({ signUp, role, profile, onContinue, onSwi
 }
 
 const styles = StyleSheet.create({
-  brand: { alignItems: 'center', gap: 12, paddingVertical: 16 },
-  wordmark: { color: colors.ink, fontFamily: headingFont, fontSize: 25 },
+  brand: { alignItems: 'center', paddingVertical: 10 },
+  logo: { width: 216, maxWidth: '100%', height: 72 },
 });

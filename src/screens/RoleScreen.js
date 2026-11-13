@@ -1,5 +1,5 @@
 import { StyleSheet, Text, View } from 'react-native';
-import EventoraMark from '../components/EventoraMark';
+import EventoraLogo from '../components/EventoraLogo';
 import { Action, Copy, Page, Panel } from '../components/FlowUI';
 import { colors, headingFont } from '../theme';
 
@@ -7,7 +7,7 @@ export default function RoleScreen({ onSelect }) {
   return (
     <Page title="Welcome to Eventora">
       <View style={styles.hero}>
-        <EventoraMark size={54} />
+        <EventoraLogo style={styles.logo} />
         <Text accessibilityRole="header" style={styles.title}>How will you use Eventora?</Text>
       </View>
       <Panel title="Attendee">
@@ -24,5 +24,6 @@ export default function RoleScreen({ onSelect }) {
 
 const styles = StyleSheet.create({
   hero: { backgroundColor: colors.lavender, borderRadius: 24, padding: 24, gap: 12 },
+  logo: { width: 184, maxWidth: '100%', height: 61 },
   title: { color: colors.ink, fontFamily: headingFont, fontSize: 27 },
 });
