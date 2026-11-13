@@ -3,7 +3,7 @@ import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { formatPrice } from '../data/events';
 import { colors } from '../theme';
 
-export function BookmarkButton({ event, saved, onPress, style }) {
+export function BookmarkButton({ event, saved, onPress, style, color = colors.purpleDark }) {
   const action = saved ? 'Remove from saved events' : 'Save event';
 
   return (
@@ -14,7 +14,7 @@ export function BookmarkButton({ event, saved, onPress, style }) {
       onPress={onPress}
       style={[styles.bookmark, style]}
     >
-      <Ionicons name={saved ? 'bookmark' : 'bookmark-outline'} size={19} color={colors.purpleDark} />
+      <Ionicons name={saved ? 'bookmark' : 'bookmark-outline'} size={19} color={color} />
     </Pressable>
   );
 }
