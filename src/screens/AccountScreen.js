@@ -1,6 +1,6 @@
-import Ionicons from '@expo/vector-icons/Ionicons';
 import { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
+import EventoraMark from '../components/EventoraMark';
 import { Action, Copy, Field, Page } from '../components/FlowUI';
 import { colors, headingFont } from '../theme';
 
@@ -29,7 +29,7 @@ export default function AccountScreen({ signUp, role, profile, onContinue, onSwi
   return (
     <Page title={title} onBack={onBack}>
       <View style={styles.brand}>
-        <View style={styles.mark}><Ionicons name="ticket-outline" size={30} color={colors.white} /></View>
+        <EventoraMark />
         <Text style={styles.wordmark}>Eventora</Text>
       </View>
       <Copy>{organizer ? 'Event organizer' : 'Attendee'} · {signUp ? 'Create a demo profile on this device. All fields are required.' : 'Use the email from your demo profile on this device.'}</Copy>
@@ -49,6 +49,5 @@ export default function AccountScreen({ signUp, role, profile, onContinue, onSwi
 
 const styles = StyleSheet.create({
   brand: { alignItems: 'center', gap: 12, paddingVertical: 16 },
-  mark: { width: 64, height: 64, borderRadius: 21, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.action },
   wordmark: { color: colors.ink, fontFamily: headingFont, fontSize: 25 },
 });

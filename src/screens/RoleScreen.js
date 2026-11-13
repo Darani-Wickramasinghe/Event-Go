@@ -1,5 +1,5 @@
-import Ionicons from '@expo/vector-icons/Ionicons';
 import { StyleSheet, Text, View } from 'react-native';
+import EventoraMark from '../components/EventoraMark';
 import { Action, Copy, Page, Panel } from '../components/FlowUI';
 import { colors, headingFont } from '../theme';
 
@@ -7,7 +7,7 @@ export default function RoleScreen({ onSelect }) {
   return (
     <Page title="Welcome to Eventora">
       <View style={styles.hero}>
-        <Ionicons name="ticket-outline" size={38} color={colors.white} />
+        <EventoraMark size={54} />
         <Text accessibilityRole="header" style={styles.title}>How will you use Eventora?</Text>
       </View>
       <Panel title="Attendee">
@@ -23,6 +23,6 @@ export default function RoleScreen({ onSelect }) {
 }
 
 const styles = StyleSheet.create({
-  hero: { backgroundColor: colors.purple, borderRadius: 24, padding: 24, gap: 12 },
-  title: { color: colors.white, fontFamily: headingFont, fontSize: 27 },
+  hero: { backgroundColor: colors.lavender, borderRadius: 24, padding: 24, gap: 12 },
+  title: { color: colors.ink, fontFamily: headingFont, fontSize: 27 },
 });

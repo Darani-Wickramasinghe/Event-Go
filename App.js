@@ -1,8 +1,9 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { randomUUID } from 'expo-crypto';
 import { useFonts } from 'expo-font';
+import * as SplashScreen from 'expo-splash-screen';
 import { useEffect, useState } from 'react';
-import { BackHandler, Linking, Pressable, StatusBar, StyleSheet, Text, View } from 'react-native';
+import { BackHandler, Linking, Platform, Pressable, StatusBar, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import EventCard from './src/components/EventCard';
 import { Copy, Page } from './src/components/FlowUI';
@@ -13,6 +14,7 @@ import AccountScreen from './src/screens/AccountScreen';
 import CalendarScreen from './src/screens/CalendarScreen';
 import DiscoveryScreen from './src/screens/DiscoveryScreen';
 import EventDetailsScreen from './src/screens/EventDetailsScreen';
+import LaunchScreen from './src/screens/LaunchScreen';
 import MapScreen from './src/screens/MapScreen';
 import NotificationsScreen from './src/screens/NotificationsScreen';
 import { AdminScreen, ReportScreen } from './src/screens/OperationsScreen';
@@ -31,22 +33,27 @@ const tabs = [
   { label: 'Profile', icon: 'person' },
 ];
 
+if (Platform.OS !== 'web') SplashScreen.preventAutoHideAsync().catch(() => {});
+
+function hideNativeSplash() {
+  if (Platform.OS !== 'web') SplashScreen.hideAsync().catch(() => {});
+}
+
 export default function App() {
   const [fontsLoaded, fontError] = useFonts({
     ...Ionicons.font,
     [headingFont]: require('./assets/Inter-ExtraBold.ttf'),
   });
 
-  if (!fontsLoaded && !fontError) return null;
-
   return (
     <SafeAreaProvider>
-      <Eventora />
+      <Eventora fontsLoaded={fontsLoaded} fontsReady={fontsLoaded || !!fontError} />
     </SafeAreaProvider>
   );
 }
 
-function Eventora() {
+function Eventora({ fontsLoaded, fontsReady }) {
+  const [launching, setLaunching] = useState(true);
   const [role, setRole] = useState(null);
   const [linkedEventId, setLinkedEventId] = useState(null);
   const [tab, setTab] = useState('Home');
@@ -273,6 +280,17 @@ function Eventora() {
         if (tab === 'Map') return <MapScreen events={publicEvents} renderEvent={renderEvent} onOpen={openEvent} city={data.profile.city} />;
         return <ProfileScreen signedIn={data.signedIn} profile={data.profile} onOpen={open} onSwitchRole={switchRole} />;
     }
+  }
+
+  if (launching) {
+    return (
+      <View style={styles.background}>
+        <StatusBar barStyle="dark-content" />
+        <View style={styles.shell}>
+          <LaunchScreen ready={ready && fontsReady} fontsLoaded={fontsLoaded} onLayout={hideNativeSplash} onFinish={() => setLaunching(false)} />
+        </View>
+      </View>
+    );
   }
 
   function applyForOrganizer(organizerApplication) {

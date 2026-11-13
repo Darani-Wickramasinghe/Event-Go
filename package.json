@@ -17,6 +17,7 @@
     "expo-crypto": "~15.0.9",
     "expo-font": "~14.0.0",
     "expo-location": "~19.0.8",
+    "expo-splash-screen": "~31.0.13",
     "jsqr": "^1.4.0",
     "leaflet": "^1.9.4",
     "qrcode-generator": "^2.0.4",
