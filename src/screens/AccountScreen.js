@@ -40,9 +40,7 @@ export default function AccountScreen({ signUp, role, profile, onContinue, onSwi
       {signUp && organizer && <Field label="Organization name" value={organization} onChangeText={setOrganization} autoCapitalize="words" maxLength={80} />}
       {!!error && <Copy alert>{error}</Copy>}
       <Action label={signUp ? 'Create demo account' : 'Log in to demo'} icon="arrow-forward" onPress={submit} />
-      {(!signUp || profile.email || !profile.name) && (
-        <Action label={signUp ? 'Already have an account? Log in' : profile.name && !profile.email ? 'Finish setting up your profile' : 'New here? Sign up'} secondary onPress={onSwitch} />
-      )}
+      <Action label={signUp ? 'Already have an account? Log in' : profile.name && !profile.email ? 'Finish setting up your profile' : 'New here? Sign up'} secondary onPress={onSwitch} />
     </Page>
   );
 }

@@ -105,12 +105,12 @@ function Eventora({ fontsReady }) {
   }, [ready]);
 
   useEffect(() => {
-    if (role !== 'attendee' || !linkedEventId) return;
-    if (publicEvents.some((item) => item.id === linkedEventId)) {
+    if (role !== 'attendee' || !linkedEventId || page?.entry) return;
+    if (events.some((item) => item.id === linkedEventId && ['Published', 'Rescheduled', 'Closed'].includes(item.status))) {
       setPages([{ name: 'event', eventId: linkedEventId }]);
     }
     setLinkedEventId(null);
-  }, [role, linkedEventId, events]);
+  }, [role, linkedEventId, events, page?.entry]);
 
   function switchRole() {
     setPages([]);
@@ -121,9 +121,7 @@ function Eventora({ fontsReady }) {
 
   function selectRole(nextRole) {
     setRole(nextRole);
-    if (nextRole === 'organizer' && (!data.signedIn || !data.profile.email)) {
-      open(data.profile.email ? 'signIn' : 'signUp');
-    }
+    setPages([{ name: 'signUp', entry: true }]);
   }
 
   function open(name, params = {}) {
@@ -135,7 +133,7 @@ function Eventora({ fontsReady }) {
   }
 
   function goBack() {
-    if (role === 'organizer' && pages.length === 1 && ['signIn', 'signUp'].includes(page.name)) {
+    if (page?.entry) {
       switchRole();
       return;
     }
@@ -214,7 +212,7 @@ function Eventora({ fontsReady }) {
       case 'signUp': {
         const signUp = page.name === 'signUp';
         return <AccountScreen key={page.name} signUp={signUp} role={role} profile={data.profile} onBack={goBack}
-          onSwitch={() => replace(signUp ? 'signIn' : 'signUp', { next: page.next })}
+          onSwitch={() => replace(signUp ? 'signIn' : 'signUp', { next: page.next, entry: page.entry })}
           onContinue={({ name, email, city, organization }) => {
             update((current) => {
               if (signUp && current.profile.email) throw new Error('This device already has a demo account. Use Log in.');

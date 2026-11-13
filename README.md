@@ -15,7 +15,7 @@ Open the localhost URL printed by Expo. Localhost or HTTPS is required for brows
 
 ## Try the demo
 
-1. At launch, choose **Attendee** to browse or **Event organizer** to open the organizer dashboard. Attendee sign-up asks for a full name, sample email, and home city. Organizer sign-up also asks for an organization name. Use the same email to log in again on this device.
+1. After the logo screen, choose **Attendee** or **Event organizer** to open the matching sign-up form. Attendees enter a full name, sample email, and home city. Organizers also enter an organization name. Returning users can choose **Log in** from sign-up. Afterward, attendees land on Home and organizers land on their dashboard.
 2. Select two places, enter the second attendee name, review, and confirm. Open each QR ticket and find the reservation in **Profile → Calendar**.
 3. To switch from the attendee side, open **Profile → Switch role** and choose **Event organizer**. Request organizer access and approve the application in the demo **Admin workspace**. Return to the dashboard to find events by name and status.
 4. Reserve another free event to try cancellation before it starts. **Sunset Sessions** has a paid ticket preview with a calculated total.
