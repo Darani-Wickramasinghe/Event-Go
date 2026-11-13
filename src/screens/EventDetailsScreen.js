@@ -55,41 +55,43 @@ export default function EventDetailsScreen({ event, saved, onSave, onBack, remai
         </Pressable>
         <BookmarkButton event={event} saved={saved} onPress={onSave} style={styles.toolbarButton} />
       </View>
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
+      <ScrollView showsVerticalScrollIndicator={false}>
         <View style={styles.cover}>
           <Image source={event.image} style={styles.image} resizeMode="cover" />
         </View>
-        <View style={styles.intro}>
-          <Text style={styles.category}>{event.category} · {event.setting}</Text>
-          <Text accessibilityRole="header" style={styles.title}>{event.title}</Text>
-          {attendeeCount > 0 && <Text style={styles.meta}>{attendeeCount} {attendeeCount === 1 ? 'place' : 'places'} reserved</Text>}
-          {!!message && <Copy>{message}</Copy>}
-          {!!unavailable && <Copy alert>{unavailable}{event.reason ? ` · ${event.reason}` : ''}</Copy>}
-        </View>
-        <View style={styles.facts}>
-          <KeyDetail icon="calendar-outline" title={dayFormat.format(start)} detail={schedule} />
-          <KeyDetail icon="location-outline" title={event.venue} detail={`${event.city}, Sri Lanka`}>
-            <Pressable accessibilityRole="button" accessibilityLabel="Get directions" onPress={() => Linking.openURL(directions).catch(() => setMessage('Directions could not be opened. Use the venue address above.'))} style={styles.directions}>
-              <Ionicons name="navigate-outline" size={21} color={colors.purpleDark} />
-            </Pressable>
-          </KeyDetail>
-        </View>
-        <View style={styles.section}>
-          <Text accessibilityRole="header" style={styles.subtitle}>About this event</Text>
-          <Text style={styles.description}>{description}</Text>
-          {longDescription && <TextLink label={expanded ? 'Read less' : 'Read more'} expanded={expanded} onPress={() => setExpanded(!expanded)} />}
-          {!!event.eligibility && <Fact icon="information-circle-outline">Eligibility · {event.eligibility}</Fact>}
-          {!!event.accessibility && <Fact icon="accessibility-outline">Accessibility · {event.accessibility}</Fact>}
-        </View>
-        <EventWeather event={event} />
-        <View style={styles.organizer}>
-          <View style={styles.avatar}><Text style={styles.initials}>{initials}</Text></View>
-          <View style={styles.titleBlock}>
-            <Text style={styles.meta}>Organized by</Text>
-            <Text style={styles.organizerName}>{event.organizer}</Text>
+        <View style={styles.content}>
+          <View style={styles.intro}>
+            <Text style={styles.category}>{event.category} · {event.setting}</Text>
+            <Text accessibilityRole="header" style={styles.title}>{event.title}</Text>
+            {attendeeCount > 0 && <Text style={styles.meta}>{attendeeCount} {attendeeCount === 1 ? 'place' : 'places'} reserved</Text>}
+            {!!message && <Copy>{message}</Copy>}
+            {!!unavailable && <Copy alert>{unavailable}{event.reason ? ` · ${event.reason}` : ''}</Copy>}
           </View>
+          <View style={styles.facts}>
+            <KeyDetail icon="calendar-outline" title={dayFormat.format(start)} detail={schedule} />
+            <KeyDetail icon="location-outline" title={event.venue} detail={`${event.city}, Sri Lanka`}>
+              <Pressable accessibilityRole="button" accessibilityLabel="Get directions" onPress={() => Linking.openURL(directions).catch(() => setMessage('Directions could not be opened. Use the venue address above.'))} style={styles.directions}>
+                <Ionicons name="navigate-outline" size={21} color={colors.purpleDark} />
+              </Pressable>
+            </KeyDetail>
+          </View>
+          <View style={styles.section}>
+            <Text accessibilityRole="header" style={styles.subtitle}>About this event</Text>
+            <Text style={styles.description}>{description}</Text>
+            {longDescription && <TextLink label={expanded ? 'Read less' : 'Read more'} expanded={expanded} onPress={() => setExpanded(!expanded)} />}
+            {!!event.eligibility && <Fact icon="information-circle-outline">Eligibility · {event.eligibility}</Fact>}
+            {!!event.accessibility && <Fact icon="accessibility-outline">Accessibility · {event.accessibility}</Fact>}
+          </View>
+          <EventWeather event={event} />
+          <View style={styles.organizer}>
+            <View style={styles.avatar}><Text style={styles.initials}>{initials}</Text></View>
+            <View style={styles.titleBlock}>
+              <Text style={styles.meta}>Organized by</Text>
+              <Text style={styles.organizerName}>{event.organizer}</Text>
+            </View>
+          </View>
+          <TextLink label="Report event" icon="flag-outline" onPress={onReport} />
         </View>
-        <TextLink label="Report event" icon="flag-outline" onPress={onReport} />
       </ScrollView>
       <View style={styles.footer}>
         <View style={styles.ticketPrice}>
@@ -141,9 +143,12 @@ const styles = StyleSheet.create({
   toolbar: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, minHeight: 54, borderBottomWidth: 1, borderColor: colors.line },
   toolbarTitle: { flex: 1, color: colors.ink, fontSize: 15, fontWeight: '700', marginLeft: 4 },
   toolbarButton: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.white },
-  cover: { height: 205, borderRadius: 16, overflow: 'hidden', backgroundColor: colors.lavender },
+  cover: { width: '100%', height: 300, backgroundColor: colors.lavender },
   image: { width: '100%', height: '100%' },
-  content: { paddingHorizontal: 20, paddingTop: 14, paddingBottom: 16, gap: 19 },
+  content: {
+    marginTop: -24, borderTopLeftRadius: 24, borderTopRightRadius: 24, backgroundColor: colors.white,
+    paddingHorizontal: 20, paddingTop: 22, paddingBottom: 16, gap: 19,
+  },
   intro: { gap: 5 },
   titleBlock: { flex: 1, gap: 3 },
   category: { color: colors.purpleDark, fontSize: 13, fontWeight: '700' },
