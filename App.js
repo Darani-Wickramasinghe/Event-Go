@@ -274,7 +274,7 @@ function Eventora({ fontsReady }) {
             nextEvent={nextEvent} />;
         }
         if (tab === 'Map') return <MapScreen events={publicEvents} renderEvent={renderEvent} onOpen={openEvent} city={data.profile.city} />;
-        return <ProfileScreen signedIn={data.signedIn} profile={data.profile} onOpen={open} onSwitchRole={switchRole} onBack={() => setTab('Home')} />;
+        return <ProfileScreen signedIn={data.signedIn} profile={data.profile} onOpen={open} onBack={() => setTab('Home')} />;
     }
   }
 

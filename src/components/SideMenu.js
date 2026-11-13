@@ -3,7 +3,7 @@ import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-nati
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, headingFont } from '../theme';
 
-export const personalTools = [
+const personalTools = [
   { name: 'registrations', label: 'My Registrations & Tickets', icon: 'ticket-outline' },
   { name: 'calendar', label: 'Calendar', icon: 'calendar-outline' },
   { name: 'saved', label: 'Saved Events', icon: 'bookmark-outline' },

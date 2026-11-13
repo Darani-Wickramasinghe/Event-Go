@@ -2,11 +2,10 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Action, Choices, Copy, Field, Page, Panel } from '../components/FlowUI';
-import { personalTools } from '../components/SideMenu';
 import { categories } from '../data/events';
 import { colors, headingFont } from '../theme';
 
-export function ProfileScreen({ signedIn, profile, onOpen, onSwitchRole, onBack }) {
+export function ProfileScreen({ signedIn, profile, onOpen, onBack }) {
   const [expanded, setExpanded] = useState(false);
   const name = signedIn && profile.name.trim() ? profile.name.trim() : 'Guest';
   const initials = name.split(/\s+/).slice(0, 2).map((word) => Array.from(word)[0]).join('').toUpperCase();
@@ -53,12 +52,6 @@ export function ProfileScreen({ signedIn, profile, onOpen, onSwitchRole, onBack 
         </View>
         {!interests.length && <Copy>Pick the kinds of events you’d like to discover.</Copy>}
       </View>
-      <View style={styles.tools}>
-        {personalTools.map(({ name, label, icon }) => (
-          <ProfileRow key={name} label={label} icon={icon} onPress={() => onOpen(name)} />
-        ))}
-        <ProfileRow label="Switch role" icon="swap-horizontal-outline" onPress={onSwitchRole} />
-      </View>
     </Page>
   );
 }
@@ -70,17 +63,6 @@ function ProfileButton({ label, text, icon, compact, expanded, onPress }) {
       style={({ pressed }) => [styles.button, compact ? styles.compactButton : styles.centerButton, pressed && styles.pressed]}>
       {icon && <Ionicons name={icon} size={compact ? 15 : 19} color={colors.purpleDark} />}
       <Text style={styles.buttonLabel}>{text ?? label}</Text>
-    </Pressable>
-  );
-}
-
-function ProfileRow({ label, icon, onPress }) {
-  return (
-    <Pressable accessibilityRole="button" accessibilityLabel={label} onPress={onPress}
-      style={({ pressed }) => [styles.row, pressed && styles.pressed]}>
-      <Ionicons name={icon} size={20} color={colors.purpleDark} />
-      <Text style={styles.rowLabel}>{label}</Text>
-      <Ionicons name="chevron-forward" size={16} color={colors.muted} />
     </Pressable>
   );
 }
@@ -141,8 +123,5 @@ const styles = StyleSheet.create({
   pressed: { backgroundColor: colors.lavender },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 7 },
   chip: { borderRadius: 18, paddingHorizontal: 12, paddingVertical: 6 },
-  chipLabel: { color: colors.ink, fontSize: 12, fontWeight: '700' },
-  tools: { borderTopWidth: 1, borderColor: colors.line, marginTop: 4 },
-  row: { flexDirection: 'row', alignItems: 'center', minHeight: 44, gap: 11, paddingVertical: 8 },
-  rowLabel: { flex: 1, color: colors.ink, fontSize: 14 },
+  chipLabel: { color: colors.white, fontSize: 12, fontWeight: '700' },
 });
