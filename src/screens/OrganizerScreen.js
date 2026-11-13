@@ -3,8 +3,10 @@ import { useEffect, useState } from 'react';
 import { BackHandler, Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Action, Choices, Copy, Field, Page, Panel } from '../components/FlowUI';
 import TicketScanner from '../components/TicketScanner';
+import VenuePickerScreen from './VenuePickerScreen';
 import { categories, formatPrice } from '../data/events';
 import { eventFromDraft } from '../data/eventOperations';
+import { isMapPoint } from '../data/venueSearch';
 import { eventTime, remainingPlaces, reservedPlaces, sriLankaDate } from '../data/reservations';
 import { colors, headingFont } from '../theme';
 
@@ -55,7 +57,7 @@ export function OrganizerScreen({ data, events, onApply, onSave, onStatus, onSca
     return <OrganizerAccess status={data.organizerAccess} application={data.organizerApplication} organizationName={data.profile.organization}
       onApply={onApply} onBack={onBack} onOpenAdmin={onOpenAdmin} onOpenSettings={onOpenSettings} />;
   }
-  if (editor) return <EventEditor event={editor} bookings={data.bookings} onBack={() => setEditor(null)} onSave={(draft) => {
+  if (editor) return <EventEditor event={editor} bookings={data.bookings} knownVenues={events.filter(isMapPoint)} onBack={() => setEditor(null)} onSave={(draft) => {
     onSave(draft, editor.id);
     if (!editor.id) { setGroup('Drafts'); setQuery(''); setTab('Events'); }
     setEditor(null);
@@ -221,7 +223,7 @@ function DashboardSummary({ events, bookings }) {
   );
 }
 
-function EventEditor({ event, bookings, onSave, onBack }) {
+function EventEditor({ event, bookings, knownVenues, onSave, onBack }) {
   const [draft, setDraft] = useState({
     title: event.title ?? '', city: event.city ?? '', venue: event.venue ?? '',
     category: event.category ?? 'Music', setting: event.setting ?? 'Indoor', description: event.description ?? '',
@@ -233,9 +235,14 @@ function EventEditor({ event, bookings, onSave, onBack }) {
   });
   const [error, setError] = useState('');
   const [step, setStep] = useState(0);
+  const [pickingVenue, setPickingVenue] = useState(false);
   const steps = ['Details', 'Schedule', 'Admission', 'Preview'];
   const previous = step > 0 ? () => { setError(''); setStep(step - 1); } : onBack;
-  useOrganizerBack(previous);
+  const closePicker = () => setPickingVenue(false);
+  useOrganizerBack(pickingVenue ? closePicker : previous);
+  const point = draft.latitude !== '' && draft.longitude !== ''
+    ? { latitude: Number(draft.latitude), longitude: Number(draft.longitude) }
+    : null;
 
   function next() {
     setError('');
@@ -264,6 +271,15 @@ function EventEditor({ event, bookings, onSave, onBack }) {
     } catch (failure) {
       setError(failure.message);
     }
+  }
+
+  if (pickingVenue) {
+    return <VenuePickerScreen venue={draft.venue} city={draft.city} point={point} knownVenues={knownVenues} onBack={closePicker}
+      onSelect={(location) => {
+        setDraft((current) => ({ ...current, ...location }));
+        setError('');
+        closePicker();
+      }} />;
   }
 
   if (step === 3) {
@@ -297,9 +313,14 @@ function EventEditor({ event, bookings, onSave, onBack }) {
           <Field label="Description" multiline maxLength={700} value={draft.description} onChangeText={(description) => setDraft({ ...draft, description })} />
         </>
       )}
+      {step === 1 && (
+        <Panel title="Venue location">
+          <Copy>{point ? [draft.venue, draft.city].filter(Boolean).join(', ') : 'Search for a venue or drop a pin on the map.'}</Copy>
+          <Action label={point ? 'Change venue on map' : 'Choose venue on map'} icon="location-outline" secondary onPress={() => setPickingVenue(true)} />
+          {!point && !!draft.venue && !!draft.city && <Copy>Saved venue: {draft.venue}, {draft.city}</Copy>}
+        </Panel>
+      )}
       {step === 1 && [
-        ['City', 'city', 'Kelaniya'], ['Venue', 'venue', 'Venue name or address'],
-        ['Latitude (optional)', 'latitude', '6.9737'], ['Longitude (optional)', 'longitude', '79.9153'],
         ['Date (YYYY-MM-DD)', 'startDate', 'YYYY-MM-DD'],
         ['Start time (HH:MM)', 'startTime', '10:00'], ['End time (HH:MM)', 'endTime', '12:00'],
       ].map(([label, key, placeholder]) => (

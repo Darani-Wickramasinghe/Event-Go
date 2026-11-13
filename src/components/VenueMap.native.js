@@ -1,8 +1,13 @@
 import { useEffect, useRef } from 'react';
 import { StyleSheet } from 'react-native';
 import MapView, { Marker } from 'react-native-maps';
+import OpenStreetVenueMap from './OpenStreetVenueMap.native';
 
-export default function VenueMap({ events, center, location, follow, onPan, onBounds, onOpen }) {
+export default function VenueMap(props) {
+  return props.onPick ? <OpenStreetVenueMap {...props} /> : <EventMap {...props} />;
+}
+
+function EventMap({ events, center, location, follow, onPan, onBounds, onOpen }) {
   const map = useRef(null);
   useEffect(() => {
     map.current?.animateToRegion({ ...center, latitudeDelta: 0.28, longitudeDelta: 0.28 });
