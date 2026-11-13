@@ -8,7 +8,7 @@ import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import EventCard from './src/components/EventCard';
 import { Copy, Page } from './src/components/FlowUI';
 import { defaultFilters } from './src/data/eventFilters';
-import { eventTime, registrationStatus, remainingPlaces } from './src/data/reservations';
+import { eventTime, registrationStatus, remainingPlaces, reservedPlaces } from './src/data/reservations';
 import { useEventoraData } from './src/data/useEventoraData';
 import AccountScreen from './src/screens/AccountScreen';
 import CalendarScreen from './src/screens/CalendarScreen';
@@ -206,6 +206,7 @@ function Eventora({ fontsReady }) {
         return <EventDetailsScreen key={event.id} event={event} onBack={goBack}
           saved={data.savedIds.includes(event.id)} onSave={() => toggleSave(event.id)}
           remaining={remainingPlaces(event, data.bookings)} unavailable={registrationStatus(event, data.bookings)}
+          attendeeCount={reservedPlaces(event, data.bookings)}
           booking={booking} onBook={book} onReport={() => open('report', { eventId: event.id })} />;
       }
       case 'signIn':

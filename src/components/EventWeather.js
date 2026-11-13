@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
-import { Copy, Panel } from './FlowUI';
+import { StyleSheet, Text, View } from 'react-native';
+import { Copy } from './FlowUI';
 import { eventTime, sriLankaDate } from '../data/reservations';
+import { colors, headingFont } from '../theme';
 
 export default function EventWeather({ event }) {
   const [message, setMessage] = useState('Loading event-hour forecast…');
@@ -50,5 +52,15 @@ export default function EventWeather({ event }) {
     return () => { active = false; clearTimeout(timeout); controller.abort(); };
   }, [latitude, longitude, startDate, startTime, endTime, setting, status]);
 
-  return <Panel title="Weather at the venue"><Copy>{message}</Copy></Panel>;
+  return (
+    <View style={styles.section}>
+      <Text accessibilityRole="header" style={styles.title}>Weather at the venue</Text>
+      <Copy>{message}</Copy>
+    </View>
+  );
 }
+
+const styles = StyleSheet.create({
+  section: { gap: 6 },
+  title: { color: colors.ink, fontSize: 17, fontFamily: headingFont },
+});
