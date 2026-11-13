@@ -47,12 +47,12 @@ export default function App() {
 
   return (
     <SafeAreaProvider>
-      <Eventora fontsLoaded={fontsLoaded} fontsReady={fontsLoaded || !!fontError} />
+      <Eventora fontsReady={fontsLoaded || !!fontError} />
     </SafeAreaProvider>
   );
 }
 
-function Eventora({ fontsLoaded, fontsReady }) {
+function Eventora({ fontsReady }) {
   const [launching, setLaunching] = useState(true);
   const [role, setRole] = useState(null);
   const [linkedEventId, setLinkedEventId] = useState(null);
@@ -287,7 +287,7 @@ function Eventora({ fontsLoaded, fontsReady }) {
       <View style={styles.background}>
         <StatusBar barStyle="dark-content" />
         <View style={styles.shell}>
-          <LaunchScreen ready={ready && fontsReady} fontsLoaded={fontsLoaded} onLayout={hideNativeSplash} onFinish={() => setLaunching(false)} />
+          <LaunchScreen ready={ready && fontsReady} onLayout={hideNativeSplash} onFinish={() => setLaunching(false)} />
         </View>
       </View>
     );

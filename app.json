@@ -8,7 +8,7 @@
     "icon": "./assets/eventora-icon.png",
     "web": { "favicon": "./assets/eventora-icon.png" },
     "plugins": [
-      ["expo-splash-screen", { "image": "./assets/eventora-mark.png", "imageWidth": 72, "backgroundColor": "#FCFBFF" }],
+      ["expo-splash-screen", { "image": "./assets/eventora-launch-logo.png", "imageWidth": 220, "backgroundColor": "#FFFFFF" }],
       ["expo-location", { "locationWhenInUsePermission": "Allow Eventora to show your location on the event map." }],
       ["expo-camera", { "cameraPermission": "Allow Eventora to scan demo event tickets.", "recordAudioAndroid": false }]
     ]
