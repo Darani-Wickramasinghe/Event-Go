@@ -43,7 +43,11 @@ export default function DiscoveryScreen({ home, openExplore, renderEvent, openPr
             <Pressable accessibilityRole="button" accessibilityLabel="Open menu" onPress={openMenu} style={styles.mark}>
               <Ionicons name="menu" color={colors.purpleDark} size={24} />
             </Pressable>
-            <View style={styles.logoPlate}><EventoraLogo style={styles.logo} /></View>
+            {home ? (
+              <EventoraLogo style={[styles.logo, styles.homeLogo]} />
+            ) : (
+              <View style={styles.logoPlate}><EventoraLogo style={styles.logo} /></View>
+            )}
           </View>
           <Pressable accessibilityRole="button" accessibilityLabel="Open profile" onPress={openProfile} style={styles.profile}>
             <Ionicons name="person-outline" color={colors.white} size={19} />
@@ -221,6 +225,7 @@ const styles = StyleSheet.create({
   },
   logoPlate: { backgroundColor: colors.white, borderRadius: 11, paddingHorizontal: 6 },
   logo: { width: 122, height: 44 },
+  homeLogo: { tintColor: colors.white },
   profile: {
     width: 44, height: 44, borderRadius: 15, backgroundColor: '#6B5DF0',
     alignItems: 'center', justifyContent: 'center',

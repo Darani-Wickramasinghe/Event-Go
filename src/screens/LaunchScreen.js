@@ -3,7 +3,7 @@ import { AccessibilityInfo, Animated, Easing, Platform, StyleSheet, View } from 
 import EventoraLogo from '../components/EventoraLogo';
 import { colors } from '../theme';
 
-const launchDuration = 5000;
+const launchDuration = 2000;
 
 export default function LaunchScreen({ ready, onLayout, onFinish }) {
   const [elapsed, setElapsed] = useState(false);
