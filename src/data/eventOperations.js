@@ -26,6 +26,7 @@ export function eventFromDraft(draft, id, bookings) {
   }
   return {
     id, title, city, venue, description, capacity, price, latitude, longitude,
+    coverImage: draft.coverImage ?? null,
     eligibility: draft.eligibility?.trim() ?? '', accessibility: draft.accessibility?.trim() ?? '',
     category: draft.category, setting: draft.setting, startDate: draft.startDate, startTime: draft.startTime, endTime: draft.endTime,
     day: draft.startDate.slice(8), date: formatEventDate(draft.startDate, draft.startTime),

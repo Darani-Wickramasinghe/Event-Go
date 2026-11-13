@@ -1,7 +1,7 @@
 import { randomUUID } from 'expo-crypto';
 import { useMemo } from 'react';
 import { changeEventStatus, eventFromDraft } from './eventOperations';
-import { events as seedEvents, eventImages, formatEventDate } from './events';
+import { events as seedEvents, eventCoverSource, formatEventDate } from './events';
 import { cancellationReason, eventTime, makeReservation, scanTicket } from './reservations';
 import { useDemoStore } from './useDemoStore';
 
@@ -14,7 +14,7 @@ function listEvents(data) {
   });
   return [...sampleEvents, ...data.createdEvents].map((base) => {
     const event = { status: 'Published', ...base, ...data.eventEdits[base.id] };
-    return { ...event, image: base.image ?? eventImages[event.category] ?? eventImages.Art };
+    return { ...event, defaultImage: base.image, image: eventCoverSource(event.coverImage, base.image, event.category) };
   });
 }
 

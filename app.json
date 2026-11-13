@@ -10,6 +10,7 @@
     "plugins": [
       ["expo-splash-screen", { "image": "./assets/eventora-launch-logo.png", "imageWidth": 220, "backgroundColor": "#FFFFFF" }],
       ["expo-location", { "locationWhenInUsePermission": "Allow Eventora to show your location on the event map." }],
+      ["expo-image-picker", { "photosPermission": "Allow Eventora to choose an event cover from your photos.", "microphonePermission": false }],
       ["expo-camera", { "cameraPermission": "Allow Eventora to scan demo event tickets.", "recordAudioAndroid": false }]
     ]
   }

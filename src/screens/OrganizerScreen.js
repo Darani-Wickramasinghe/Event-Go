@@ -3,8 +3,9 @@ import { useEffect, useState } from 'react';
 import { BackHandler, Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Action, Choices, Copy, Field, Page, Panel } from '../components/FlowUI';
 import TicketScanner from '../components/TicketScanner';
+import EventCoverPicker from '../components/EventCoverPicker';
 import VenuePickerScreen from './VenuePickerScreen';
-import { categories, formatPrice } from '../data/events';
+import { categories, eventCoverSource, formatPrice } from '../data/events';
 import { eventFromDraft } from '../data/eventOperations';
 import { isMapPoint } from '../data/venueSearch';
 import { eventTime, remainingPlaces, reservedPlaces, sriLankaDate } from '../data/reservations';
@@ -232,10 +233,13 @@ function EventEditor({ event, bookings, knownVenues, onSave, onBack }) {
     latitude: String(event.latitude ?? ''), longitude: String(event.longitude ?? ''),
     reason: '',
     eligibility: event.eligibility ?? '', accessibility: event.accessibility ?? '',
+    coverImage: event.coverImage ?? null,
   });
   const [error, setError] = useState('');
   const [step, setStep] = useState(0);
   const [pickingVenue, setPickingVenue] = useState(false);
+  const [preparingCover, setPreparingCover] = useState(false);
+  const cover = eventCoverSource(draft.coverImage, event.defaultImage, draft.category);
   const steps = ['Details', 'Schedule', 'Admission', 'Preview'];
   const previous = step > 0 ? () => { setError(''); setStep(step - 1); } : onBack;
   const closePicker = () => setPickingVenue(false);
@@ -286,6 +290,7 @@ function EventEditor({ event, bookings, knownVenues, onSave, onBack }) {
     return (
       <Page title="Preview listing" onBack={previous}>
         <EditorProgress step={step} steps={steps} />
+        <Image source={cover} accessibilityRole="image" accessibilityLabel="Listing cover preview" resizeMode="cover" style={styles.eventCover} />
         <Panel title={draft.title.trim() || 'Untitled event'}>
           <Copy>{draft.category} · {draft.setting}</Copy>
           <Copy>{draft.startDate} · {draft.startTime}–{draft.endTime} · Sri Lanka time</Copy>
@@ -311,6 +316,8 @@ function EventEditor({ event, bookings, knownVenues, onSave, onBack }) {
           <Choices label="Category" options={categories.slice(1).map((category) => category.label)} selected={[draft.category]} onSelect={(category) => setDraft({ ...draft, category })} />
           <Choices label="Venue setting" options={['Indoor', 'Outdoor']} selected={[draft.setting]} onSelect={(setting) => setDraft({ ...draft, setting })} />
           <Field label="Description" multiline maxLength={700} value={draft.description} onChangeText={(description) => setDraft({ ...draft, description })} />
+          <EventCoverPicker image={cover} hasCustomCover={!!draft.coverImage}
+            onBusyChange={setPreparingCover} onChange={(coverImage) => setDraft((current) => ({ ...current, coverImage }))} />
         </>
       )}
       {step === 1 && (
@@ -338,7 +345,7 @@ function EventEditor({ event, bookings, knownVenues, onSave, onBack }) {
         </>
       )}
       {!!error && <Copy alert>{error}</Copy>}
-      <Action label={step === 2 ? 'Preview listing' : 'Continue'} icon="arrow-forward" onPress={next} />
+      <Action label={step === 2 ? 'Preview listing' : 'Continue'} icon="arrow-forward" disabled={preparingCover} onPress={next} />
     </Page>
   );
 }

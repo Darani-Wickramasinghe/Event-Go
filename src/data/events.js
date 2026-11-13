@@ -103,6 +103,10 @@ export const eventImages = {
   Art: require('../../assets/art.jpg'),
 };
 
+export function eventCoverSource(coverImage, fallback, category) {
+  return coverImage ? { uri: coverImage } : fallback ?? eventImages[category] ?? eventImages.Art;
+}
+
 export function formatEventDate(date, time) {
   const instant = new Date(`${date}T${time}:00+05:30`);
   const format = new Intl.DateTimeFormat('en-LK', {
