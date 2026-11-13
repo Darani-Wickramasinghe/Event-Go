@@ -4,6 +4,7 @@ import {
   KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import DateField from './DateField';
 import { dateRangeError, defaultFilters } from '../data/eventFilters';
 import { categories } from '../data/events';
 import { colors, headingFont } from '../theme';
@@ -12,6 +13,7 @@ export default function EventFiltersSheet({ filters, category, onClose, onApply 
   const [draft, setDraft] = useState(filters);
   const [draftCategory, setDraftCategory] = useState(category);
   const [error, setError] = useState('');
+  const [openDate, setOpenDate] = useState(null);
 
   function update(field, value) {
     setDraft((current) => ({ ...current, [field]: value }));
@@ -19,9 +21,16 @@ export default function EventFiltersSheet({ filters, category, onClose, onApply 
   }
 
   function reset() {
+    setOpenDate(null);
     setDraft(defaultFilters);
     setDraftCategory('All');
     setError('');
+  }
+
+  function dateField(label, field, bounds) {
+    return <DateField label={label} value={draft[field]} expanded={openDate === field} optional {...bounds}
+      onToggle={() => setOpenDate(openDate === field ? null : field)}
+      onChange={(date) => { update(field, date); setOpenDate(null); }} />;
   }
 
   function apply() {
@@ -35,7 +44,7 @@ export default function EventFiltersSheet({ filters, category, onClose, onApply 
   }
 
   return (
-    <Modal transparent animationType="slide" onRequestClose={onClose}>
+    <Modal transparent animationType="slide" onRequestClose={() => openDate ? setOpenDate(null) : onClose()}>
       <KeyboardAvoidingView style={styles.overlay} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <SafeAreaView edges={['bottom']} style={styles.sheet} accessibilityViewIsModal>
           <View style={styles.handle} />
@@ -68,10 +77,8 @@ export default function EventFiltersSheet({ filters, category, onClose, onApply 
             </View>
             <View style={styles.group}>
               <Text style={styles.label}>Date range</Text>
-              <View style={styles.row}>
-                <FilterInput label="Start date" placeholder="YYYY-MM-DD" value={draft.from} onChangeText={(value) => update('from', value)} />
-                <FilterInput label="End date" placeholder="YYYY-MM-DD" value={draft.to} onChangeText={(value) => update('to', value)} />
-              </View>
+              {dateField('Start date', 'from', { max: draft.to })}
+              {dateField('End date', 'to', { min: draft.from })}
               {!!error && <Text accessibilityRole="alert" style={styles.error}>{error}</Text>}
             </View>
             <View style={styles.row}>

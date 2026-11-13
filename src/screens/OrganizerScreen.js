@@ -4,6 +4,7 @@ import { BackHandler, Image, Pressable, StyleSheet, Text, View } from 'react-nat
 import { Action, Choices, Copy, Field, Page, Panel } from '../components/FlowUI';
 import TicketScanner from '../components/TicketScanner';
 import EventCoverPicker from '../components/EventCoverPicker';
+import DateField from '../components/DateField';
 import VenuePickerScreen from './VenuePickerScreen';
 import { categories, eventCoverSource, formatPrice } from '../data/events';
 import { eventFromDraft } from '../data/eventOperations';
@@ -195,10 +196,14 @@ function EventEditor({ event, bookings, knownVenues, onSave, onBack }) {
   const [error, setError] = useState('');
   const [step, setStep] = useState(0);
   const [pickingVenue, setPickingVenue] = useState(false);
+  const [dateOpen, setDateOpen] = useState(false);
   const [preparingCover, setPreparingCover] = useState(false);
   const cover = eventCoverSource(draft.coverImage, event.defaultImage, draft.category);
   const steps = ['Details', 'Schedule', 'Admission', 'Preview'];
-  const previous = step > 0 ? () => { setError(''); setStep(step - 1); } : onBack;
+  const previous = step > 0 ? () => {
+    if (dateOpen) setDateOpen(false);
+    else { setError(''); setStep(step - 1); }
+  } : onBack;
   const closePicker = () => setPickingVenue(false);
   useOrganizerBack(pickingVenue ? closePicker : previous);
   const point = draft.latitude !== '' && draft.longitude !== ''
@@ -223,6 +228,7 @@ function EventEditor({ event, bookings, knownVenues, onSave, onBack }) {
         return;
       }
     }
+    setDateOpen(false);
     setStep(step + 1);
   }
 
@@ -286,8 +292,10 @@ function EventEditor({ event, bookings, knownVenues, onSave, onBack }) {
           {!point && !!draft.venue && !!draft.city && <Copy>Saved venue: {draft.venue}, {draft.city}</Copy>}
         </Panel>
       )}
+      {step === 1 && <DateField label="Event date" value={draft.startDate} expanded={dateOpen}
+        onToggle={() => setDateOpen(!dateOpen)}
+        onChange={(startDate) => { setDraft((current) => ({ ...current, startDate })); setError(''); setDateOpen(false); }} />}
       {step === 1 && [
-        ['Date (YYYY-MM-DD)', 'startDate', 'YYYY-MM-DD'],
         ['Start time (HH:MM)', 'startTime', '10:00'], ['End time (HH:MM)', 'endTime', '12:00'],
       ].map(([label, key, placeholder]) => (
         <Field key={key} label={label} placeholder={placeholder} maxLength={100} value={draft[key]} onChangeText={(value) => setDraft({ ...draft, [key]: value })} />
