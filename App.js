@@ -7,6 +7,7 @@ import { BackHandler, Linking, Platform, Pressable, StatusBar, StyleSheet, Text,
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import EventCard from './src/components/EventCard';
 import { Copy, Page } from './src/components/FlowUI';
+import SideMenu from './src/components/SideMenu';
 import { defaultFilters } from './src/data/eventFilters';
 import { eventTime, registrationStatus, remainingPlaces, reservedPlaces } from './src/data/reservations';
 import { useEventoraData } from './src/data/useEventoraData';
@@ -19,7 +20,7 @@ import MapScreen from './src/screens/MapScreen';
 import NotificationsScreen from './src/screens/NotificationsScreen';
 import { AdminScreen, ReportScreen } from './src/screens/OperationsScreen';
 import { OrganizerScreen } from './src/screens/OrganizerScreen';
-import { ProfileScreen, SettingsScreen, SideMenu } from './src/screens/ProfileScreen';
+import { ProfileScreen, SettingsScreen } from './src/screens/ProfileScreen';
 import ReservationScreen from './src/screens/ReservationScreen';
 import RoleScreen from './src/screens/RoleScreen';
 import SavedEventsScreen from './src/screens/SavedEventsScreen';
@@ -117,6 +118,11 @@ function Eventora({ fontsReady }) {
     setMenuOpen(false);
     setTab('Home');
     setRole(null);
+  }
+
+  function signOut() {
+    update((current) => ({ ...current, signedIn: false }));
+    switchRole();
   }
 
   function selectRole(nextRole) {
@@ -248,7 +254,7 @@ function Eventora({ fontsReady }) {
       case 'settings':
         return <SettingsScreen profile={data.profile} signedIn={data.signedIn} onBack={goBack}
           onSave={(profile) => { update((current) => ({ ...current, profile })); goBack(); }}
-          onSignOut={() => { update((current) => ({ ...current, signedIn: false })); switchRole(); }} />;
+          onSignOut={signOut} />;
       case 'notifications':
         return <NotificationsScreen data={data} events={events} onBack={goBack}
           onSettings={() => open('settings')} onRead={markNoticesRead}
@@ -335,10 +341,10 @@ function Eventora({ fontsReady }) {
         )}
       </View>
       {menuOpen && (
-        <SideMenu onClose={() => setMenuOpen(false)} onOpen={(name) => {
-          setMenuOpen(false);
-          open(name);
-        }} />
+        <SideMenu profile={data.profile} signedIn={data.signedIn} onSignOut={signOut}
+          onClose={() => setMenuOpen(false)}
+          onProfile={() => { setMenuOpen(false); setTab('Profile'); }}
+          onOpen={(name) => { setMenuOpen(false); open(name); }} />
       )}
     </View>
   );

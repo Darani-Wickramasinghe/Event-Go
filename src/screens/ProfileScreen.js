@@ -1,9 +1,7 @@
 import { useState } from 'react';
-import { Modal, ScrollView, StyleSheet, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { Action, Choices, Copy, Field, Page, Panel } from '../components/FlowUI';
+import { personalTools } from '../components/SideMenu';
 import { categories } from '../data/events';
-import { colors } from '../theme';
 
 export function ProfileScreen({ signedIn, profile, onOpen, onSwitchRole }) {
   return (
@@ -23,36 +21,11 @@ export function ProfileScreen({ signedIn, profile, onOpen, onSwitchRole }) {
           </>
         )}
       </Panel>
-      <PersonalTools onOpen={onOpen} />
+      {personalTools.map(({ name, label, icon }) => (
+        <Action key={name} label={label} icon={icon} secondary onPress={() => onOpen(name)} />
+      ))}
       <Action label="Switch role" secondary onPress={onSwitchRole} />
     </Page>
-  );
-}
-
-function PersonalTools({ onOpen }) {
-  return (
-    <>
-      <Action label="My Registrations & Tickets" icon="ticket-outline" secondary onPress={() => onOpen('registrations')} />
-      <Action label="Calendar" icon="calendar-outline" secondary onPress={() => onOpen('calendar')} />
-      <Action label="Saved Events" icon="bookmark-outline" secondary onPress={() => onOpen('saved')} />
-      <Action label="Notifications" icon="notifications-outline" secondary onPress={() => onOpen('notifications')} />
-      <Action label="Settings" icon="settings-outline" secondary onPress={() => onOpen('settings')} />
-    </>
-  );
-}
-
-export function SideMenu({ onOpen, onClose }) {
-  return (
-    <Modal transparent animationType="fade" onRequestClose={onClose}>
-      <View style={styles.overlay}>
-        <SafeAreaView style={styles.drawer} accessibilityViewIsModal>
-          <ScrollView contentContainerStyle={styles.menu}>
-            <Action label="Close menu" icon="close" secondary onPress={onClose} />
-            <PersonalTools onOpen={onOpen} />
-          </ScrollView>
-        </SafeAreaView>
-      </View>
-    </Modal>
   );
 }
 
@@ -93,9 +66,3 @@ export function SettingsScreen({ profile, signedIn, onSave, onSignOut, onBack })
     </Page>
   );
 }
-
-const styles = StyleSheet.create({
-  overlay: { flex: 1, backgroundColor: 'rgba(18, 13, 38, 0.56)' },
-  drawer: { flex: 1, width: '86%', maxWidth: 320, backgroundColor: colors.white },
-  menu: { padding: 18, gap: 10 },
-});
