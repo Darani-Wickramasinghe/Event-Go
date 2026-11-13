@@ -40,14 +40,10 @@ export default function DiscoveryScreen({ home, openExplore, renderEvent, openPr
         <View pointerEvents="none" style={styles.innerOrbit} />
         <View style={styles.top}>
           <View style={styles.brand}>
-            <Pressable accessibilityRole="button" accessibilityLabel="Open menu" onPress={openMenu} style={[styles.menuButton, !home && styles.menuTile]}>
-              <Ionicons name="menu" color={home ? colors.white : colors.purpleDark} size={24} />
+            <Pressable accessibilityRole="button" accessibilityLabel="Open menu" onPress={openMenu} style={styles.menuButton}>
+              <Ionicons name="menu" color={colors.white} size={24} />
             </Pressable>
-            {home ? (
-              <EventoraLogo style={[styles.logo, styles.homeLogo]} />
-            ) : (
-              <View style={styles.logoPlate}><EventoraLogo style={styles.logo} /></View>
-            )}
+            <EventoraLogo style={styles.logo} />
           </View>
           <Pressable accessibilityRole="button" accessibilityLabel="Open profile" onPress={openProfile} style={styles.profile}>
             <Ionicons name="person-outline" color={colors.white} size={19} />
@@ -220,10 +216,7 @@ const styles = StyleSheet.create({
   top: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   brand: { flexDirection: 'row', alignItems: 'center', gap: 9 },
   menuButton: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
-  menuTile: { borderRadius: 11, backgroundColor: '#BBFAE8' },
-  logoPlate: { backgroundColor: colors.white, borderRadius: 11, paddingHorizontal: 6 },
-  logo: { width: 122, height: 44 },
-  homeLogo: { tintColor: colors.white },
+  logo: { width: 122, height: 44, tintColor: colors.white },
   profile: {
     width: 44, height: 44, borderRadius: 15, backgroundColor: '#6B5DF0',
     alignItems: 'center', justifyContent: 'center',
