@@ -1,11 +1,11 @@
 export const categories = [
-  { label: 'All', icon: 'apps-outline', color: '#EAE7FF', ink: '#4438C7' },
-  { label: 'Music', icon: 'musical-notes-outline', color: '#FFE0D6', ink: '#9D3829' },
-  { label: 'IT', icon: 'code-slash-outline', color: '#D9FAEE', ink: '#11634D' },
-  { label: 'Food', icon: 'restaurant-outline', color: '#FFF0D3', ink: '#855309' },
-  { label: 'Art', icon: 'color-palette-outline', color: '#FFE1EF', ink: '#9B3566' },
-  { label: 'Education', icon: 'school-outline', color: '#DFEBFF', ink: '#254F9B' },
-  { label: 'Sports', icon: 'football-outline', color: '#E7F2D9', ink: '#415D24' },
+  { label: 'All', icon: 'apps-outline', color: '#7460FF' },
+  { label: 'Music', icon: 'musical-notes-outline', color: '#FA9660' },
+  { label: 'IT', icon: 'code-slash-outline', color: '#32C6EF' },
+  { label: 'Food', icon: 'restaurant-outline', color: '#1FD28E' },
+  { label: 'Art', icon: 'color-palette-outline', color: '#F45AA8' },
+  { label: 'Education', icon: 'school-outline', color: '#438DF8' },
+  { label: 'Sports', icon: 'football-outline', color: '#F26055' },
 ];
 
 // These sample events let us build and test the UI before the API is ready.

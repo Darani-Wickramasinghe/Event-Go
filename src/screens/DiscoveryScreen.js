@@ -97,7 +97,7 @@ export default function DiscoveryScreen({ home, openExplore, renderEvent, openPr
       </View>
 
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipRail} contentContainerStyle={styles.chips}>
-        {categories.map(({ label, icon, color, ink }) => {
+        {categories.map(({ label, icon, color }) => {
           const selected = !home && category === label;
           return (
             <Pressable
@@ -106,10 +106,10 @@ export default function DiscoveryScreen({ home, openExplore, renderEvent, openPr
               accessibilityLabel={label}
               accessibilityState={{ selected }}
               onPress={() => selectCategory(label)}
-              style={[styles.chip, { backgroundColor: selected ? ink : color }]}
+              style={[styles.chip, { backgroundColor: color }]}
             >
-              <Ionicons name={icon} size={17} color={selected ? colors.white : ink} />
-              <Text style={[styles.chipText, { color: selected ? colors.white : ink }]}>{label}</Text>
+              <Ionicons name={selected ? 'checkmark' : icon} size={17} color={colors.white} />
+              <Text style={styles.chipText}>{label}</Text>
             </Pressable>
           );
         })}
@@ -244,7 +244,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row', gap: 6, alignItems: 'center', paddingHorizontal: 13,
     minHeight: 42, borderRadius: 24,
   },
-  chipText: { fontSize: 13, fontWeight: '700' },
+  chipText: { color: colors.white, fontSize: 13, fontWeight: '700' },
   sectionHeading: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 20, marginTop: 15, marginBottom: 8, minHeight: 38,
