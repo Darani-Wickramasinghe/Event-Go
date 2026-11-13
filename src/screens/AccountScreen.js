@@ -4,18 +4,23 @@ import { StyleSheet, Text, View } from 'react-native';
 import { Action, Copy, Field, Page } from '../components/FlowUI';
 import { colors, headingFont } from '../theme';
 
-export default function AccountScreen({ signUp, profile, onContinue, onSwitch, onBack }) {
+export default function AccountScreen({ signUp, role, profile, onContinue, onSwitch, onBack }) {
   const [name, setName] = useState(profile.name);
   const [email, setEmail] = useState(profile.email ?? '');
+  const [city, setCity] = useState(profile.name ? profile.city : '');
+  const [organization, setOrganization] = useState(profile.organization ?? '');
   const [error, setError] = useState('');
   const title = signUp ? 'Sign up' : 'Log in';
+  const organizer = role === 'organizer';
 
   function submit() {
     const address = email.trim().toLowerCase();
-    if (signUp && !name.trim()) return setError('Enter your display name.');
+    if (signUp && !name.trim()) return setError('Enter your full name.');
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(address)) return setError('Enter a valid email address.');
+    if (signUp && !city.trim()) return setError('Enter your home city.');
+    if (signUp && organizer && !organization.trim()) return setError('Enter your organization name.');
     try {
-      onContinue({ name: name.trim(), email: address });
+      onContinue({ name: name.trim(), email: address, city: city.trim(), organization: organization.trim() });
     } catch (failure) {
       setError(failure.message);
     }
@@ -27,10 +32,12 @@ export default function AccountScreen({ signUp, profile, onContinue, onSwitch, o
         <View style={styles.mark}><Ionicons name="ticket-outline" size={30} color={colors.white} /></View>
         <Text style={styles.wordmark}>Eventora</Text>
       </View>
-      <Copy>{signUp ? 'Create a demo profile on this device. Use a sample email.' : 'Enter the email you used to set up your demo profile on this device.'}</Copy>
-      {signUp && <Field label="Display name" value={name} onChangeText={setName} autoCapitalize="words" maxLength={70} />}
+      <Copy>{organizer ? 'Event organizer' : 'Attendee'} · {signUp ? 'Create a demo profile on this device. All fields are required.' : 'Use the email from your demo profile on this device.'}</Copy>
+      {signUp && <Field label="Full name" value={name} onChangeText={setName} autoCapitalize="words" autoComplete="name" maxLength={70} />}
       <Field label="Email address" value={email} onChangeText={setEmail} autoCapitalize="none" autoCorrect={false}
         keyboardType="email-address" autoComplete="email" placeholder="name@example.com" maxLength={120} onSubmitEditing={submit} />
+      {signUp && <Field label="Home city" value={city} onChangeText={setCity} autoCapitalize="words" placeholder="e.g. Kelaniya" maxLength={50} />}
+      {signUp && organizer && <Field label="Organization name" value={organization} onChangeText={setOrganization} autoCapitalize="words" maxLength={80} />}
       {!!error && <Copy alert>{error}</Copy>}
       <Action label={signUp ? 'Create demo account' : 'Log in to demo'} icon="arrow-forward" onPress={submit} />
       {(!signUp || profile.email || !profile.name) && (

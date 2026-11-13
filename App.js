@@ -19,6 +19,7 @@ import { AdminScreen, ReportScreen } from './src/screens/OperationsScreen';
 import { OrganizerScreen } from './src/screens/OrganizerScreen';
 import { ProfileScreen, SettingsScreen, SideMenu } from './src/screens/ProfileScreen';
 import ReservationScreen from './src/screens/ReservationScreen';
+import RoleScreen from './src/screens/RoleScreen';
 import SavedEventsScreen from './src/screens/SavedEventsScreen';
 import { ReservationsList, TicketScreen } from './src/screens/TicketsScreen';
 import { colors, headingFont } from './src/theme';
@@ -46,6 +47,8 @@ export default function App() {
 }
 
 function Eventora() {
+  const [role, setRole] = useState(null);
+  const [linkedEventId, setLinkedEventId] = useState(null);
   const [tab, setTab] = useState('Home');
   const [pages, setPages] = useState([]);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -63,7 +66,7 @@ function Eventora() {
     .sort((first, second) => eventTime(first) - eventTime(second))[0];
 
   const isDiscovery = tab === 'Home' || tab === 'Explore';
-  const purpleTop = isDiscovery && !page && ready;
+  const purpleTop = role === 'attendee' && isDiscovery && !page && ready;
 
   useEffect(() => {
     if (!page) return;
@@ -72,7 +75,7 @@ function Eventora() {
       return true;
     });
     return () => back.remove();
-  }, [page]);
+  }, [page, role, pages.length]);
 
   useEffect(() => {
     if (!ready) return;
@@ -87,12 +90,34 @@ function Eventora() {
       } catch {
         return;
       }
-      if (publicEvents.some((item) => item.id === id)) setPages([{ name: 'event', eventId: id }]);
+      if (id) setLinkedEventId(id);
     }
     Linking.getInitialURL().then(openLink).catch(() => {});
     const subscription = Linking.addEventListener('url', ({ url }) => openLink(url));
     return () => { active = false; subscription.remove(); };
   }, [ready]);
+
+  useEffect(() => {
+    if (role !== 'attendee' || !linkedEventId) return;
+    if (publicEvents.some((item) => item.id === linkedEventId)) {
+      setPages([{ name: 'event', eventId: linkedEventId }]);
+    }
+    setLinkedEventId(null);
+  }, [role, linkedEventId, events]);
+
+  function switchRole() {
+    setPages([]);
+    setMenuOpen(false);
+    setTab('Home');
+    setRole(null);
+  }
+
+  function selectRole(nextRole) {
+    setRole(nextRole);
+    if (nextRole === 'organizer' && (!data.signedIn || !data.profile.email)) {
+      open(data.profile.email ? 'signIn' : 'signUp');
+    }
+  }
 
   function open(name, params = {}) {
     setPages((current) => [...current, { name, ...params }]);
@@ -103,6 +128,10 @@ function Eventora() {
   }
 
   function goBack() {
+    if (role === 'organizer' && pages.length === 1 && ['signIn', 'signUp'].includes(page.name)) {
+      switchRole();
+      return;
+    }
     setPages((current) => current.slice(0, -1));
   }
 
@@ -151,6 +180,11 @@ function Eventora() {
 
   function renderPage() {
     if (!ready) return <Page title="Eventora"><Copy>Loading your events…</Copy></Page>;
+    if (!role) return <RoleScreen onSelect={selectRole} />;
+    if (role === 'organizer' && !page) {
+      return <OrganizerScreen data={data} events={events} onBack={switchRole} onSave={saveEvent} onStatus={setEventStatus} onScan={checkIn}
+        onApply={applyForOrganizer} onOpenAdmin={() => open('admin')} onOpenSettings={() => open('settings')} />;
+    }
     switch (page?.name) {
       case 'event': {
         const booking = bookings.find((item) => item.eventId === event.id && item.status === 'Confirmed')
@@ -172,16 +206,16 @@ function Eventora() {
       case 'signIn':
       case 'signUp': {
         const signUp = page.name === 'signUp';
-        return <AccountScreen key={page.name} signUp={signUp} profile={data.profile} onBack={goBack}
+        return <AccountScreen key={page.name} signUp={signUp} role={role} profile={data.profile} onBack={goBack}
           onSwitch={() => replace(signUp ? 'signIn' : 'signUp', { next: page.next })}
-          onContinue={({ name, email }) => {
+          onContinue={({ name, email, city, organization }) => {
             update((current) => {
               if (signUp && current.profile.email) throw new Error('This device already has a demo account. Use Log in.');
               if (!signUp && current.profile.email !== email) throw new Error('That email does not match a demo account on this device.');
-              return { ...current, signedIn: true, profile: signUp ? { ...current.profile, name, email } : current.profile };
+              return { ...current, signedIn: true, profile: signUp ? { ...current.profile, name, email, city, organization } : current.profile };
             });
             if (page.next) replace(page.next.name, page.next);
-            else goBack();
+            else setPages((current) => current.slice(0, -1));
           }} />;
       }
       case 'reservation':
@@ -208,18 +242,11 @@ function Eventora() {
       case 'settings':
         return <SettingsScreen profile={data.profile} signedIn={data.signedIn} onBack={goBack}
           onSave={(profile) => { update((current) => ({ ...current, profile })); goBack(); }}
-          onSignOut={() => { update((current) => ({ ...current, signedIn: false })); setPages([]); }} />;
+          onSignOut={() => { update((current) => ({ ...current, signedIn: false })); switchRole(); }} />;
       case 'notifications':
         return <NotificationsScreen data={data} events={events} onBack={goBack}
           onSettings={() => open('settings')} onRead={markNoticesRead}
           onOpen={({ bookingId, eventId }) => bookingId ? openTicket(bookingId) : open('event', { eventId })} />;
-      case 'organizer':
-        return <OrganizerScreen data={data} events={events} onBack={goBack} onSave={saveEvent}
-          onStatus={setEventStatus} onScan={checkIn}
-          onApply={(organizerApplication) => update((current) => ({
-            ...current, organizerApplication, organizerAccess: 'Pending',
-            audit: [`Organizer application · ${organizerApplication.organization}`, ...current.audit],
-          }))} />;
       case 'admin':
         return <AdminScreen data={data} events={events} onBack={goBack}
           onAccess={(status) => update((current) => ({
@@ -244,8 +271,15 @@ function Eventora() {
             nextEvent={nextEvent} />;
         }
         if (tab === 'Map') return <MapScreen events={publicEvents} renderEvent={renderEvent} onOpen={openEvent} city={data.profile.city} />;
-        return <ProfileScreen signedIn={data.signedIn} profile={data.profile} onOpen={open} />;
+        return <ProfileScreen signedIn={data.signedIn} profile={data.profile} onOpen={open} onSwitchRole={switchRole} />;
     }
+  }
+
+  function applyForOrganizer(organizerApplication) {
+    update((current) => ({
+      ...current, organizerApplication, organizerAccess: 'Pending',
+      audit: [`Organizer application · ${organizerApplication.organization}`, ...current.audit],
+    }));
   }
 
   return (
@@ -258,7 +292,7 @@ function Eventora() {
             {renderPage()}
           </View>
         </SafeAreaView>
-        {page ? (
+        {page || role !== 'attendee' ? (
           <SafeAreaView edges={['bottom']} />
         ) : (
           <SafeAreaView edges={['bottom']} style={styles.navigation}>

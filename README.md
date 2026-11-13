@@ -15,9 +15,9 @@ Open the localhost URL printed by Expo. Localhost or HTTPS is required for brows
 
 ## Try the demo
 
-1. Open **Profile → Sign up** to create a demo account with a sample name and email, or start from **Tech Connect → Reserve free places**. Use the same email to log in again on this device.
+1. At launch, choose **Attendee** to browse or **Event organizer** to open the organizer dashboard. Attendee sign-up asks for a full name, sample email, and home city. Organizer sign-up also asks for an organization name. Use the same email to log in again on this device.
 2. Select two places, enter the second attendee name, review, and confirm. Open each QR ticket and find the reservation in **Profile → Calendar**.
-3. Open **Profile → Organizer dashboard → Request organizer access** and submit an organization name and description. Approve the application in **Admin workspace**. Return to the dashboard to find events by name and status.
+3. To switch from the attendee side, open **Profile → Switch role** and choose **Event organizer**. Request organizer access and approve the application in the demo **Admin workspace**. Return to the dashboard to find events by name and status.
 4. Reserve another free event to try cancellation before it starts. **Sunset Sessions** has a paid ticket preview with a calculated total.
 5. Use **Map** to search a city or request location access. Event Details shows event-hour weather when [Open-Meteo](https://open-meteo.com/en/docs) has data for the venue and date.
 

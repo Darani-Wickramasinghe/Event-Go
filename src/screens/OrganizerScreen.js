@@ -22,7 +22,7 @@ function organizerEventStatus(event) {
     : event.status;
 }
 
-export function OrganizerScreen({ data, events, onApply, onSave, onStatus, onScan, onBack }) {
+export function OrganizerScreen({ data, events, onApply, onSave, onStatus, onScan, onBack, onOpenAdmin, onOpenSettings }) {
   const [editor, setEditor] = useState(null);
   const [selected, setSelected] = useState(null);
   const [group, setGroup] = useState('All');
@@ -30,7 +30,8 @@ export function OrganizerScreen({ data, events, onApply, onSave, onStatus, onSca
   const visibleEvents = events.filter((event) => (!eventGroups[group] || eventGroups[group].includes(organizerEventStatus(event)))
     && event.title.toLowerCase().includes(query.trim().toLowerCase()));
   if (data.organizerAccess !== 'Approved') {
-    return <OrganizerAccess status={data.organizerAccess} application={data.organizerApplication} onApply={onApply} onBack={onBack} />;
+    return <OrganizerAccess status={data.organizerAccess} application={data.organizerApplication} organizationName={data.profile.organization}
+      onApply={onApply} onBack={onBack} onOpenAdmin={onOpenAdmin} onOpenSettings={onOpenSettings} />;
   }
   if (editor) return <EventEditor event={editor} onBack={() => setEditor(null)} onSave={(draft) => { onSave(draft, editor.id); setEditor(null); }} />;
   if (selected) {
@@ -51,13 +52,15 @@ export function OrganizerScreen({ data, events, onApply, onSave, onStatus, onSca
         </Panel>
       ))}
       {visibleEvents.length === 0 && <Copy>No events in this view.</Copy>}
+      <Action label="Admin workspace" secondary onPress={onOpenAdmin} />
+      <Action label="Settings" secondary onPress={onOpenSettings} />
     </Page>
   );
 }
 
-function OrganizerAccess({ status, application, onApply, onBack }) {
+function OrganizerAccess({ status, application, organizationName, onApply, onBack, onOpenAdmin, onOpenSettings }) {
   const [applying, setApplying] = useState(false);
-  const [organization, setOrganization] = useState(application?.organization ?? '');
+  const [organization, setOrganization] = useState(application?.organization ?? organizationName ?? '');
   const [description, setDescription] = useState(application?.description ?? '');
   return (
     <Page title={applying && status !== 'Pending' ? 'Organizer application' : 'Organizer dashboard'} onBack={applying && status !== 'Pending' ? () => setApplying(false) : onBack}>
@@ -75,6 +78,8 @@ function OrganizerAccess({ status, application, onApply, onBack }) {
           }} />
         </>
       ) : ['Not requested', 'Rejected'].includes(status) && <Action label="Request organizer access" onPress={() => setApplying(true)} />}
+      {!applying && <Action label="Admin workspace" secondary onPress={onOpenAdmin} />}
+      {!applying && <Action label="Settings" secondary onPress={onOpenSettings} />}
     </Page>
   );
 }

@@ -5,7 +5,7 @@ import { Action, Choices, Copy, Field, Page, Panel } from '../components/FlowUI'
 import { categories } from '../data/events';
 import { colors } from '../theme';
 
-export function ProfileScreen({ signedIn, profile, onOpen }) {
+export function ProfileScreen({ signedIn, profile, onOpen, onSwitchRole }) {
   return (
     <Page title="Profile">
       <Panel title={signedIn ? profile.name : 'Guest'}>
@@ -24,11 +24,7 @@ export function ProfileScreen({ signedIn, profile, onOpen }) {
         )}
       </Panel>
       <PersonalTools onOpen={onOpen} />
-      <Panel title="Demo tools">
-        <Copy>Try the organizer and moderator workflows on this device.</Copy>
-        <Action label="Organizer dashboard" secondary onPress={() => onOpen('organizer')} />
-        <Action label="Admin workspace" secondary onPress={() => onOpen('admin')} />
-      </Panel>
+      <Action label="Switch role" secondary onPress={onSwitchRole} />
     </Page>
   );
 }
