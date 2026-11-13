@@ -44,7 +44,8 @@ export default function TicketScanner({ onScan, onError }) {
           }}
         />
       )}
-      <Action label={open ? 'Close camera' : 'Scan QR code'} secondary disabled={requesting} onPress={open ? () => setOpen(false) : start} />
+      <Action label={open ? 'Close camera' : 'Scan QR code'} icon={open ? 'close-outline' : 'scan-outline'}
+        secondary={open} disabled={requesting} onPress={open ? () => setOpen(false) : start} />
     </>
   );
 }

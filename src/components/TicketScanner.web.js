@@ -57,7 +57,8 @@ export default function TicketScanner({ onScan, onError }) {
   return (
     <>
       {open && <video ref={video} aria-label="QR scanner camera" muted playsInline style={{ width: '100%', height: 230, borderRadius: 12, background: '#171833', objectFit: 'cover' }} />}
-      <Action label={open ? 'Close camera' : 'Scan QR code'} secondary onPress={() => setOpen(!open)} />
+      <Action label={open ? 'Close camera' : 'Scan QR code'} icon={open ? 'close-outline' : 'scan-outline'}
+        secondary={open} onPress={() => setOpen(!open)} />
     </>
   );
 }

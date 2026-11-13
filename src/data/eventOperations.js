@@ -37,7 +37,10 @@ export function changeEventStatus(data, event, status, reason, now = Date.now())
   if (status === 'Archived') reason = event.reason ?? '';
   if (status === 'Published' && eventTime(event, event.endTime) <= now) throw new Error('Set a future schedule before publishing.');
   if (status === 'Cancelled' && !reason.trim()) throw new Error('Enter a reason for this change.');
-  const eventEdits = { ...data.eventEdits, [event.id]: { ...data.eventEdits[event.id], status, reason: reason.trim() } };
+  const eventEdits = { ...data.eventEdits, [event.id]: {
+    ...data.eventEdits[event.id], status, reason: reason.trim(),
+    ...(status === 'Archived' && { archivedFrom: event.status }),
+  } };
   const affected = data.bookings.some((booking) => booking.eventId === event.id && booking.status === 'Confirmed');
   const bookings = status === 'Cancelled'
     ? data.bookings.map((booking) => booking.eventId === event.id && booking.status === 'Confirmed' ? { ...booking, status: 'Cancelled' } : booking)
