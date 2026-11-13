@@ -90,8 +90,8 @@ export default function EventDetailsScreen({ event, saved, onSave, onBack, remai
               <Text style={styles.meta}>Organized by</Text>
               <Text style={styles.organizerName}>{event.organizer}</Text>
             </View>
+            <TextLink label="Report event" icon="flag-outline" color="#B42332" onPress={onReport} />
           </View>
-          <TextLink label="Report event" icon="flag-outline" onPress={onReport} />
         </View>
       </ScrollView>
       <View style={styles.footer}>
@@ -129,12 +129,12 @@ function Fact({ icon, children }) {
   );
 }
 
-function TextLink({ label, icon, expanded, onPress }) {
+function TextLink({ label, icon, expanded, onPress, color = colors.purpleDark }) {
   return (
     <Pressable accessibilityRole="button" accessibilityLabel={label}
       accessibilityState={expanded === undefined ? undefined : { expanded }} onPress={onPress} style={styles.link}>
-      {icon && <Ionicons name={icon} size={17} color={colors.purpleDark} />}
-      <Text style={styles.linkText}>{label}</Text>
+      {icon && <Ionicons name={icon} size={17} color={color} />}
+      <Text style={[styles.linkText, { color }]}>{label}</Text>
     </Pressable>
   );
 }
@@ -165,7 +165,7 @@ const styles = StyleSheet.create({
   fact: { flexDirection: 'row', alignItems: 'center', gap: 7 },
   factText: { flexShrink: 1, color: colors.muted, fontSize: 14, lineHeight: 20 },
   link: { minHeight: 44, alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 6 },
-  linkText: { color: colors.purpleDark, fontSize: 14, fontWeight: '700' },
+  linkText: { fontSize: 14, fontWeight: '700' },
   organizer: { flexDirection: 'row', alignItems: 'center', gap: 12, borderTopWidth: 1, borderColor: colors.line, paddingTop: 17 },
   avatar: { width: 45, height: 45, borderRadius: 23, backgroundColor: colors.lavender, alignItems: 'center', justifyContent: 'center' },
   initials: { color: colors.purpleDark, fontSize: 15, fontWeight: '800' },

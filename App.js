@@ -252,7 +252,9 @@ function Eventora({ fontsReady }) {
         return <SavedEventsScreen events={saved} renderEvent={renderEvent} onBack={goBack} onBrowse={browseEvents} />;
       }
       case 'settings':
-        return <SettingsScreen profile={data.profile} signedIn={data.signedIn} onBack={goBack}
+      case 'editProfile':
+      case 'interests':
+        return <SettingsScreen key={page.name} mode={page.name} profile={data.profile} signedIn={data.signedIn} onBack={goBack}
           onSave={(profile) => { update((current) => ({ ...current, profile })); goBack(); }}
           onSignOut={signOut} />;
       case 'notifications':
@@ -272,7 +274,7 @@ function Eventora({ fontsReady }) {
             nextEvent={nextEvent} />;
         }
         if (tab === 'Map') return <MapScreen events={publicEvents} renderEvent={renderEvent} onOpen={openEvent} city={data.profile.city} />;
-        return <ProfileScreen signedIn={data.signedIn} profile={data.profile} onOpen={open} onSwitchRole={switchRole} />;
+        return <ProfileScreen signedIn={data.signedIn} profile={data.profile} onOpen={open} onSwitchRole={switchRole} onBack={() => setTab('Home')} />;
     }
   }
 
