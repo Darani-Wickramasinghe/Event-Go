@@ -15,7 +15,6 @@ const initialState = {
   notifications: [],
   readReminders: [],
   reports: [],
-  organizerAccess: 'Not requested',
   audit: [],
 };
 

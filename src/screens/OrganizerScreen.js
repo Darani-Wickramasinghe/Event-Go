@@ -14,8 +14,7 @@ import { colors, headingFont } from '../theme';
 const eventGroups = {
   All: null,
   Live: ['Published', 'Rescheduled', 'Closed'],
-  Drafts: ['Draft', 'Rejected'],
-  'In review': ['Submitted'],
+  Drafts: ['Draft'],
   Completed: ['Completed'],
   Cancelled: ['Cancelled'],
   Archived: ['Archived'],
@@ -34,7 +33,7 @@ function organizerEventStatus(event) {
     : event.status;
 }
 
-export function OrganizerScreen({ data, events, onApply, onSave, onStatus, onScan, onBack, onOpenAdmin, onOpenSettings }) {
+export function OrganizerScreen({ data, events, onSave, onStatus, onScan, onBack, onOpenSettings }) {
   const [editor, setEditor] = useState(null);
   const [selected, setSelected] = useState(null);
   const [tab, setTab] = useState('Overview');
@@ -44,23 +43,18 @@ export function OrganizerScreen({ data, events, onApply, onSave, onStatus, onSca
     && event.title.toLowerCase().includes(query.trim().toLowerCase()));
   const live = events.filter((event) => eventGroups.Live.includes(organizerEventStatus(event)));
   const upcoming = [...live].sort((first, second) => eventTime(first) - eventTime(second));
-  const attendeeEvents = events.filter((event) => !['Draft', 'Rejected', 'Submitted'].includes(event.status));
-  const review = events.filter(({ status }) => status === 'Submitted' || status === 'Rejected');
-  const organization = data.organizerApplication?.organization || data.profile.organization || 'Organizer dashboard';
+  const attendeeEvents = events.filter((event) => event.status !== 'Draft');
+  const organization = data.profile.organization || data.organizerApplication?.organization || 'Organizer dashboard';
 
   function openEvent(event, screen = 'overview') {
     setSelected({ id: event.id, screen });
   }
 
-  useOrganizerBack(tab === 'Overview' ? onBack : () => setTab('Overview'), !editor && !selected && data.organizerAccess === 'Approved');
+  useOrganizerBack(tab === 'Overview' ? onBack : () => setTab('Overview'), !editor && !selected);
 
-  if (data.organizerAccess !== 'Approved') {
-    return <OrganizerAccess status={data.organizerAccess} application={data.organizerApplication} organizationName={data.profile.organization}
-      onApply={onApply} onBack={onBack} onOpenAdmin={onOpenAdmin} onOpenSettings={onOpenSettings} />;
-  }
-  if (editor) return <EventEditor event={editor} bookings={data.bookings} knownVenues={events.filter(isMapPoint)} onBack={() => setEditor(null)} onSave={(draft) => {
-    onSave(draft, editor.id);
-    if (!editor.id) { setGroup('Drafts'); setQuery(''); setTab('Events'); }
+  if (editor) return <EventEditor event={editor} bookings={data.bookings} knownVenues={events.filter(isMapPoint)} onBack={() => setEditor(null)} onSave={(draft, publish) => {
+    onSave(draft, editor.id, publish);
+    if (!editor.id || publish) { setGroup(publish ? 'Live' : 'Drafts'); setQuery(''); setTab('Events'); }
     setEditor(null);
   }} />;
   if (selected) {
@@ -79,16 +73,12 @@ export function OrganizerScreen({ data, events, onApply, onSave, onStatus, onSca
             </View>
             <DashboardSummary events={events} bookings={data.bookings} />
             <Action label="Create event draft" icon="add" onPress={() => setEditor({})} />
-            {review.length > 0 && <Section title="Review status">
-              {review.map((event) => <EventRow key={event.id} event={event} onPress={() => openEvent(event)} />)}
-            </Section>}
             <Section title="Coming up">
               {upcoming.slice(0, 3).map((event) => <EventRow key={event.id} event={event} onPress={() => openEvent(event)} />)}
               {!upcoming.length && <Copy>Published events will appear here.</Copy>}
             </Section>
             <Section title="Workspace">
               <NavRow label="Settings" icon="settings-outline" onPress={onOpenSettings} />
-              <NavRow label="Admin workspace" icon="shield-checkmark-outline" onPress={onOpenAdmin} />
             </Section>
           </>
         )}
@@ -170,43 +160,10 @@ function NavRow({ label, icon, onPress }) {
   );
 }
 
-function OrganizerAccess({ status, application, organizationName, onApply, onBack, onOpenAdmin, onOpenSettings }) {
-  const [applying, setApplying] = useState(false);
-  const [organization, setOrganization] = useState(application?.organization ?? organizationName ?? '');
-  const [description, setDescription] = useState(application?.description ?? '');
-  const close = applying ? () => setApplying(false) : onBack;
-  useOrganizerBack(close);
-  return (
-    <Page title={applying ? 'Organizer application' : 'Organizer dashboard'} onBack={close}>
-      <View style={styles.hero}>
-        <Ionicons name="business-outline" size={26} color={colors.white} />
-        <Text accessibilityRole="header" style={styles.heroTitle}>{applying ? 'Tell us about your organization' : 'Organizer access'}</Text>
-        <Text style={styles.heroCopy}>{status === 'Not requested' ? 'Apply to publish events and manage admissions.' : `Organizer access · ${status}`}</Text>
-      </View>
-      {status !== 'Not requested' && <Panel>
-        {status === 'Pending' ? <Copy>{application?.organization ? `${application.organization} · ` : ''}Your application is awaiting review in the Admin workspace.</Copy>
-          : <Copy>{status === 'Suspended' ? 'Organizer access is suspended.' : 'Apply to publish events and manage registrations.'}</Copy>}
-      </Panel>}
-      {applying && status !== 'Pending' ? (
-        <>
-          <Field label="Organization name" value={organization} onChangeText={setOrganization} maxLength={80} />
-          <Field label="Tell us about your events" value={description} onChangeText={setDescription} multiline maxLength={350} />
-          <Action label="Submit application" disabled={!organization.trim() || !description.trim()} onPress={() => {
-            onApply({ organization: organization.trim(), description: description.trim() });
-            setApplying(false);
-          }} />
-        </>
-      ) : ['Not requested', 'Rejected'].includes(status) && <Action label="Request organizer access" onPress={() => setApplying(true)} />}
-      {!applying && <Action label="Admin workspace" secondary onPress={onOpenAdmin} />}
-      {!applying && <Action label="Settings" secondary onPress={onOpenSettings} />}
-    </Page>
-  );
-}
-
 function DashboardSummary({ events, bookings }) {
   const metrics = [
     ['Live events', events.filter((event) => eventGroups.Live.includes(organizerEventStatus(event))).length],
-    ['Awaiting review', events.filter((event) => event.status === 'Submitted').length],
+    ['Drafts', events.filter((event) => event.status === 'Draft').length],
     ['Reserved places', bookings.filter((booking) => booking.status === 'Confirmed').reduce((total, booking) => total + booking.tickets.length, 0)],
     ['Checked in', bookings.flatMap((booking) => booking.tickets).filter((ticket) => ticket.checkedInAt).length],
   ];
@@ -269,9 +226,9 @@ function EventEditor({ event, bookings, knownVenues, onSave, onBack }) {
     setStep(step + 1);
   }
 
-  function save() {
+  function save(publish = false) {
     try {
-      onSave(draft);
+      onSave(draft, publish);
     } catch (failure) {
       setError(failure.message);
     }
@@ -301,7 +258,9 @@ function EventEditor({ event, bookings, knownVenues, onSave, onBack }) {
           <Copy>{draft.price ? formatPrice(Number(draft.price)) : 'Free'} · {draft.capacity || 'Unlimited'} places</Copy>
         </Panel>
         {!!error && <Copy alert>{error}</Copy>}
-        <Action label={event.id ? 'Save event changes' : 'Save draft'} onPress={save} />
+        {(!event.id || event.status === 'Draft') && <Action label="Publish event" onPress={() => save(true)} />}
+        <Action label={!event.id || event.status === 'Draft' ? 'Save draft' : 'Save event changes'}
+          secondary={!event.id || event.status === 'Draft'} onPress={() => save()} />
         <Action label="Back to editing" secondary onPress={previous} />
       </Page>
     );
@@ -466,9 +425,8 @@ function ManageEvent({ event, bookings, initialScreen, onBack, onEdit, onStatus,
         <Copy>{remaining === null ? 'Unlimited capacity' : `${remaining} places remaining`}</Copy>
       </Section>
       <NavRow label="View attendees" icon="people-outline" onPress={() => setScreen('attendees')} />
-      {(!ended || !publicEvent) && ['Draft', 'Rejected', 'Published', 'Rescheduled', 'Closed'].includes(event.status) && <NavRow label="Edit event" icon="create-outline" onPress={onEdit} />}
-      {['Draft', 'Rejected'].includes(event.status) && <Action label="Submit for review" onPress={() => update('Submitted')} />}
-      {event.status === 'Submitted' && <Copy>Awaiting review in the Admin workspace.</Copy>}
+      {(!ended || !publicEvent) && ['Draft', 'Published', 'Rescheduled', 'Closed'].includes(event.status) && <NavRow label="Edit event" icon="create-outline" onPress={onEdit} />}
+      {event.status === 'Draft' && <Action label="Publish event" onPress={() => update('Published')} />}
       {publicEvent && !ended && (
         <>
           <Action label="Open ticket check-in" icon="qr-code-outline" onPress={() => { setMessage(''); setScreen('checkIn'); }} />

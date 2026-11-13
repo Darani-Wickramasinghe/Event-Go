@@ -18,7 +18,7 @@ import EventDetailsScreen from './src/screens/EventDetailsScreen';
 import LaunchScreen from './src/screens/LaunchScreen';
 import MapScreen from './src/screens/MapScreen';
 import NotificationsScreen from './src/screens/NotificationsScreen';
-import { AdminScreen, ReportScreen } from './src/screens/OperationsScreen';
+import { ReportScreen } from './src/screens/OperationsScreen';
 import { OrganizerScreen } from './src/screens/OrganizerScreen';
 import { ProfileScreen, SettingsScreen } from './src/screens/ProfileScreen';
 import ReservationScreen from './src/screens/ReservationScreen';
@@ -194,7 +194,7 @@ function Eventora({ fontsReady }) {
     if (!role) return <RoleScreen onSelect={selectRole} />;
     if (role === 'organizer' && !page) {
       return <OrganizerScreen data={data} events={events} onBack={switchRole} onSave={saveEvent} onStatus={setEventStatus} onScan={checkIn}
-        onApply={applyForOrganizer} onOpenAdmin={() => open('admin')} onOpenSettings={() => open('settings')} />;
+        onOpenSettings={() => open('settings')} />;
     }
     switch (page?.name) {
       case 'event': {
@@ -259,17 +259,6 @@ function Eventora({ fontsReady }) {
         return <NotificationsScreen data={data} events={events} onBack={goBack}
           onSettings={() => open('settings')} onRead={markNoticesRead}
           onOpen={({ bookingId, eventId }) => bookingId ? openTicket(bookingId) : open('event', { eventId })} />;
-      case 'admin':
-        return <AdminScreen data={data} events={events} onBack={goBack}
-          onAccess={(status) => update((current) => ({
-            ...current, organizerAccess: status, audit: [`Organizer access · ${status}`, ...current.audit],
-          }))}
-          onStatus={(id, status, reason) => setEventStatus(id, status, reason, true)}
-          onReport={(id, status, resolution) => update((current) => ({
-            ...current,
-            reports: current.reports.map((item) => item.id === id ? { ...item, status, resolution } : item),
-            audit: [`Report · ${status}${resolution ? ` · ${resolution}` : ''}`, ...current.audit],
-          }))} />;
       case 'report':
         return <ReportScreen event={event} onBack={goBack} onSubmit={(reportCategory, note) => {
           const report = { id: randomUUID(), eventId: event.id, category: reportCategory, note, status: 'Open' };
@@ -296,13 +285,6 @@ function Eventora({ fontsReady }) {
         </View>
       </View>
     );
-  }
-
-  function applyForOrganizer(organizerApplication) {
-    update((current) => ({
-      ...current, organizerApplication, organizerAccess: 'Pending',
-      audit: [`Organizer application · ${organizerApplication.organization}`, ...current.audit],
-    }));
   }
 
   return (

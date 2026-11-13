@@ -14,6 +14,7 @@ function listEvents(data) {
   });
   return [...sampleEvents, ...data.createdEvents].map((base) => {
     const event = { status: 'Published', ...base, ...data.eventEdits[base.id] };
+    if (['Submitted', 'Rejected'].includes(event.status)) event.status = 'Draft';
     return { ...event, defaultImage: base.image, image: eventCoverSource(event.coverImage, base.image, event.category) };
   });
 }
@@ -59,13 +60,15 @@ export function useEventoraData() {
     });
   }
 
-  function saveEvent(draft, eventId) {
+  function saveEvent(draft, eventId, publish = false) {
     const id = eventId ?? randomUUID();
     update((current) => {
-      if (current.organizerAccess !== 'Approved') throw new Error('Organizer access is required.');
+      if (!current.signedIn) throw new Error('Log in to manage events.');
       const details = eventFromDraft(draft, id, current.bookings);
+      if (publish && eventTime(details, details.endTime) <= Date.now()) throw new Error('Set a future schedule before publishing.');
       if (!eventId) {
-        const event = { ...details, organizer: current.organizerApplication?.organization ?? 'Eventora Demo Organizer', status: 'Draft' };
+        const organizer = current.profile.organization || current.organizerApplication?.organization || current.profile.name || 'Eventora Demo Organizer';
+        const event = { ...details, organizer, status: publish ? 'Published' : 'Draft' };
         return { ...current, createdEvents: [...current.createdEvents, event] };
       }
       const event = listEvents(current).find((item) => item.id === id);
@@ -75,8 +78,9 @@ export function useEventoraData() {
       const publicEvent = ['Published', 'Rescheduled', 'Closed'].includes(event.status);
       if (publicEvent && moved && !draft.reason?.trim()) throw new Error('Enter a reason for changing the schedule or venue.');
       if (publicEvent && moved && eventTime(details, details.endTime) <= Date.now()) throw new Error('Set a future schedule for the event.');
-      const status = publicEvent && moved && event.status !== 'Closed' ? 'Rescheduled' : event.status;
-      const reason = publicEvent && moved ? draft.reason.trim() : event.reason;
+      if (publish && event.status !== 'Draft') throw new Error('Only drafts can be published.');
+      const status = publish ? 'Published' : publicEvent && moved && event.status !== 'Closed' ? 'Rescheduled' : event.status;
+      const reason = publish ? '' : publicEvent && moved ? draft.reason.trim() : event.reason;
       const notices = affected && moved
         ? [{ id: randomUUID(), eventId: id, title: `${event.title} was updated`, message: `${reason} · ${details.date} · ${details.venue}`, read: false }, ...current.notifications]
         : current.notifications;
@@ -84,34 +88,29 @@ export function useEventoraData() {
         ...current,
         eventEdits: { ...current.eventEdits, [id]: { ...details, status, reason, rescheduled: publicEvent && moved ? true : event.rescheduled } },
         notifications: notices,
-        audit: [`${event.title} · Updated${publicEvent && moved ? ` · ${reason}` : ''}`, ...current.audit],
+        audit: [`${event.title} · ${publish ? 'Published' : 'Updated'}${publicEvent && moved ? ` · ${reason}` : ''}`, ...current.audit],
       };
     });
   }
 
-  function setEventStatus(eventId, status, reason, admin = false) {
+  function setEventStatus(eventId, status, reason) {
     update((current) => {
+      if (!current.signedIn) throw new Error('Log in to manage events.');
       const event = listEvents(current).find((item) => item.id === eventId);
-      if (admin) {
-        if (event.status !== 'Submitted') throw new Error('Only submitted drafts can be reviewed.');
-        if (status === 'Published' && current.organizerAccess !== 'Approved') throw new Error('Approve the organizer before publishing.');
-      } else {
-        if (current.organizerAccess !== 'Approved') throw new Error('Organizer access is required.');
-        const ended = eventTime(event, event.endTime) <= Date.now();
-        const publicEvent = ['Published', 'Rescheduled', 'Closed'].includes(event.status);
-        const allowed = ['Draft', 'Rejected'].includes(event.status) ? ['Submitted']
-          : event.status === 'Cancelled' || (publicEvent && ended) ? ['Archived']
-          : ['Published', 'Rescheduled'].includes(event.status) ? ['Closed', 'Cancelled']
-          : event.status === 'Closed' ? ['Cancelled'] : [];
-        if (!allowed.includes(status)) throw new Error('This status change is unavailable.');
-      }
+      const ended = eventTime(event, event.endTime) <= Date.now();
+      const publicEvent = ['Published', 'Rescheduled', 'Closed'].includes(event.status);
+      const allowed = event.status === 'Draft' ? ['Published']
+        : event.status === 'Cancelled' || (publicEvent && ended) ? ['Archived']
+        : ['Published', 'Rescheduled'].includes(event.status) ? ['Closed', 'Cancelled']
+        : event.status === 'Closed' ? ['Cancelled'] : [];
+      if (!allowed.includes(status)) throw new Error('This status change is unavailable.');
       return changeEventStatus(current, event, status, reason);
     });
   }
 
   function checkIn(eventId, code) {
     update((current) => {
-      if (current.organizerAccess !== 'Approved') throw new Error('Organizer access is required.');
+      if (!current.signedIn) throw new Error('Log in to check in attendees.');
       const event = listEvents(current).find((item) => item.id === eventId);
       const checkedIn = scanTicket(event, current.bookings, code);
       return { ...current, bookings: current.bookings.map((item) => item.id === checkedIn.id ? checkedIn : item) };

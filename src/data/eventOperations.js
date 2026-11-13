@@ -36,7 +36,7 @@ export function eventFromDraft(draft, id, bookings) {
 export function changeEventStatus(data, event, status, reason, now = Date.now()) {
   if (status === 'Archived') reason = event.reason ?? '';
   if (status === 'Published' && eventTime(event, event.endTime) <= now) throw new Error('Set a future schedule before publishing.');
-  if (['Cancelled', 'Rejected'].includes(status) && !reason.trim()) throw new Error('Enter a reason for this change.');
+  if (status === 'Cancelled' && !reason.trim()) throw new Error('Enter a reason for this change.');
   const eventEdits = { ...data.eventEdits, [event.id]: { ...data.eventEdits[event.id], status, reason: reason.trim() } };
   const affected = data.bookings.some((booking) => booking.eventId === event.id && booking.status === 'Confirmed');
   const bookings = status === 'Cancelled'
