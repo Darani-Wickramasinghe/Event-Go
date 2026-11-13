@@ -72,7 +72,7 @@ Only show positive advice when status === 'ok'. For any other status show
 - Member 5 (notifications): hasMaterialChange(previousSummary, newSummary)
   returns true only when two real forecasts differ in category or checklist.
 
-## Rules implemented (from the analysis / SRS)
+## Rules implemented 
 
 - Below 30% all event hours: Low rain chance
 - 30-59%: Rain possible
