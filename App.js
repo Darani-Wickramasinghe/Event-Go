@@ -268,7 +268,7 @@ function Eventora({ fontsReady }) {
         }} />;
       default:
         if (isDiscovery) {
-          return <DiscoveryScreen home={tab === 'Home'} openExplore={() => setTab('Explore')} openProfile={() => setTab('Profile')} openMenu={() => setMenuOpen(true)}
+          return <DiscoveryScreen home={tab === 'Home'} openExplore={() => setTab('Explore')} openNotifications={() => open('notifications')} openMenu={() => setMenuOpen(true)}
             renderEvent={renderEvent} search={search} setSearch={setSearch} category={category} setCategory={setCategory}
             filters={filters} setFilters={setFilters} events={publicEvents} city={data.profile.city} interests={data.profile.interests}
             nextEvent={nextEvent} />;

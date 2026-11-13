@@ -8,7 +8,7 @@ import { categories } from '../data/events';
 import { eventTime } from '../data/reservations';
 import { colors, headingFont } from '../theme';
 
-export default function DiscoveryScreen({ home, openExplore, renderEvent, openProfile, openMenu, search, setSearch, category, setCategory, filters, setFilters, events, city, interests, nextEvent }) {
+export default function DiscoveryScreen({ home, openExplore, renderEvent, openNotifications, openMenu, search, setSearch, category, setCategory, filters, setFilters, events, city, interests, nextEvent }) {
   const [showFilters, setShowFilters] = useState(false);
   const results = filterEvents(events, search, category, filters);
   const hasFilters = Object.keys(defaultFilters).some((key) => filters[key] !== defaultFilters[key]);
@@ -40,13 +40,13 @@ export default function DiscoveryScreen({ home, openExplore, renderEvent, openPr
         <View pointerEvents="none" style={styles.innerOrbit} />
         <View style={styles.top}>
           <View style={styles.brand}>
-            <Pressable accessibilityRole="button" accessibilityLabel="Open menu" onPress={openMenu} style={styles.menuButton}>
+            <Pressable accessibilityRole="button" accessibilityLabel="Open menu" onPress={openMenu} style={styles.headerButton}>
               <Ionicons name="menu" color={colors.white} size={24} />
             </Pressable>
             <EventoraLogo style={styles.logo} />
           </View>
-          <Pressable accessibilityRole="button" accessibilityLabel="Open profile" onPress={openProfile} style={styles.profile}>
-            <Ionicons name="person-outline" color={colors.white} size={19} />
+          <Pressable accessibilityRole="button" accessibilityLabel="Open notifications" onPress={openNotifications} style={styles.headerButton}>
+            <Ionicons name="notifications-outline" color={colors.white} size={24} />
           </Pressable>
         </View>
         <View style={styles.heroContent}>
@@ -215,12 +215,8 @@ const styles = StyleSheet.create({
   },
   top: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   brand: { flexDirection: 'row', alignItems: 'center', gap: 9 },
-  menuButton: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
+  headerButton: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
   logo: { width: 122, height: 44, tintColor: colors.white },
-  profile: {
-    width: 44, height: 44, borderRadius: 15, backgroundColor: '#6B5DF0',
-    alignItems: 'center', justifyContent: 'center',
-  },
   heroContent: { gap: 9, marginTop: 20 },
   location: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   locationText: { color: '#E9E5FF', fontSize: 13, fontWeight: '600' },
