@@ -9,13 +9,14 @@ import { Copy, Page } from './src/components/FlowUI';
 import { defaultFilters } from './src/data/eventFilters';
 import { eventTime, registrationStatus, remainingPlaces } from './src/data/reservations';
 import { useEventoraData } from './src/data/useEventoraData';
+import AccountScreen from './src/screens/AccountScreen';
 import CalendarScreen from './src/screens/CalendarScreen';
 import DiscoveryScreen from './src/screens/DiscoveryScreen';
 import EventDetailsScreen from './src/screens/EventDetailsScreen';
 import MapScreen from './src/screens/MapScreen';
 import NotificationsScreen from './src/screens/NotificationsScreen';
 import { AdminScreen, OrganizerScreen, ReportScreen } from './src/screens/OperationsScreen';
-import { DemoSignIn, ProfileScreen, SettingsScreen, SideMenu } from './src/screens/ProfileScreen';
+import { ProfileScreen, SettingsScreen, SideMenu } from './src/screens/ProfileScreen';
 import ReservationScreen from './src/screens/ReservationScreen';
 import SavedEventsScreen from './src/screens/SavedEventsScreen';
 import { ReservationsList, TicketScreen } from './src/screens/TicketsScreen';
@@ -160,7 +161,7 @@ function Eventora() {
           }
           const next = { name: 'reservation', eventId: event.id, requestId: randomUUID() };
           if (data.signedIn || event.price > 0) open(next.name, next);
-          else open('signIn', { next });
+          else open(data.profile.email ? 'signIn' : 'signUp', { next });
         }
         return <EventDetailsScreen key={event.id} event={event} onBack={goBack}
           saved={data.savedIds.includes(event.id)} onSave={() => toggleSave(event.id)}
@@ -168,11 +169,20 @@ function Eventora() {
           booking={booking} onBook={book} onReport={() => open('report', { eventId: event.id })} />;
       }
       case 'signIn':
-        return <DemoSignIn name={data.profile.name} onBack={goBack} onSignIn={(name) => {
-          update((current) => ({ ...current, signedIn: true, profile: { ...current.profile, name } }));
-          if (page.next) replace(page.next.name, page.next);
-          else goBack();
-        }} />;
+      case 'signUp': {
+        const signUp = page.name === 'signUp';
+        return <AccountScreen key={page.name} signUp={signUp} profile={data.profile} onBack={goBack}
+          onSwitch={() => replace(signUp ? 'signIn' : 'signUp', { next: page.next })}
+          onContinue={({ name, email }) => {
+            update((current) => {
+              if (signUp && current.profile.email) throw new Error('This device already has a demo account. Use Log in.');
+              if (!signUp && current.profile.email !== email) throw new Error('That email does not match a demo account on this device.');
+              return { ...current, signedIn: true, profile: signUp ? { ...current.profile, name, email } : current.profile };
+            });
+            if (page.next) replace(page.next.name, page.next);
+            else goBack();
+          }} />;
+      }
       case 'reservation':
         return <ReservationScreen key={page.requestId} event={event} events={events} bookings={bookings}
           remaining={remainingPlaces(event, data.bookings)} profile={data.profile} onBack={goBack}
@@ -186,7 +196,7 @@ function Eventora() {
       }
       case 'registrations':
         return <ReservationsList bookings={bookings} events={events} onBack={goBack} onOpen={openTicket} onBrowse={browseEvents}
-          onSignIn={!data.signedIn && data.profile.name ? () => open('signIn') : undefined} />;
+          onSignIn={!data.signedIn && data.profile.name ? () => open(data.profile.email ? 'signIn' : 'signUp') : undefined} />;
       case 'calendar':
         return <CalendarScreen bookings={bookings} events={events} view={page} onChange={(view) => replace('calendar', view)}
           onBack={goBack} onOpen={openTicket} onBrowse={browseEvents} />;

@@ -1,37 +1,73 @@
 import { useState } from 'react';
+import { StyleSheet, Text, View } from 'react-native';
 import { Action, Choices, Copy, Field, Page, Panel } from '../components/FlowUI';
 import TicketScanner from '../components/TicketScanner';
 import { categories } from '../data/events';
 import { remainingPlaces, reservedPlaces, sriLankaDate } from '../data/reservations';
+import { colors, headingFont } from '../theme';
+
+const eventGroups = {
+  All: null,
+  Live: ['Published', 'Rescheduled', 'Closed'],
+  Drafts: ['Draft', 'Rejected'],
+  'In review': ['Submitted'],
+  Cancelled: ['Cancelled'],
+};
 
 export function OrganizerScreen({ data, events, onApply, onSave, onStatus, onScan, onBack }) {
   const [editor, setEditor] = useState(null);
   const [selected, setSelected] = useState(null);
+  const [group, setGroup] = useState('All');
+  const visibleEvents = events.filter((event) => !eventGroups[group] || eventGroups[group].includes(event.status));
   if (editor) return <EventEditor event={editor} onBack={() => setEditor(null)} onSave={(draft) => { onSave(draft, editor.id); setEditor(null); }} />;
   if (selected) {
     const event = events.find((item) => item.id === selected);
     return <ManageEvent event={event} bookings={data.bookings} onBack={() => setSelected(null)} onEdit={() => setEditor(event)} onStatus={onStatus} onScan={onScan} />;
   }
   return (
-    <Page title="Organizer workspace" onBack={onBack}>
-      <Copy>Organizer access · {data.organizerAccess}</Copy>
+    <Page title="Organizer dashboard" onBack={onBack}>
       {data.organizerAccess === 'Approved' ? (
         <>
+          <DashboardSummary events={events} bookings={data.bookings} />
           <Action label="Create event draft" icon="add" onPress={() => setEditor({})} />
-          {events.map((event) => (
+          <Choices label="My events" options={Object.keys(eventGroups)} selected={[group]} onSelect={setGroup} />
+          {visibleEvents.map((event) => (
             <Panel key={event.id} title={event.title}>
               <Copy>{event.date} · {event.status}</Copy>
+              <Copy>{reservedPlaces(event, data.bookings)} reserved places</Copy>
               <Action label={`Manage ${event.title}`} secondary onPress={() => setSelected(event.id)} />
             </Panel>
           ))}
+          {visibleEvents.length === 0 && <Copy>No events in this view.</Copy>}
         </>
       ) : (
-        <>
+        <Panel title={`Organizer access · ${data.organizerAccess}`}>
           <Copy>Apply here, then review the application in the Admin workspace to try publishing and check-in.</Copy>
           <Action label="Request organizer access" onPress={onApply} disabled={data.organizerAccess === 'Pending'} />
-        </>
+        </Panel>
       )}
     </Page>
+  );
+}
+
+function DashboardSummary({ events, bookings }) {
+  const metrics = [
+    ['Live events', events.filter((event) => eventGroups.Live.includes(event.status)).length],
+    ['Awaiting review', events.filter((event) => event.status === 'Submitted').length],
+    ['Reserved places', bookings.filter((booking) => booking.status === 'Confirmed').reduce((total, booking) => total + booking.tickets.length, 0)],
+    ['Checked in', bookings.flatMap((booking) => booking.tickets).filter((ticket) => ticket.checkedInAt).length],
+  ];
+  return (
+    <Panel title="Overview">
+      <View style={styles.metrics}>
+        {metrics.map(([label, count]) => (
+          <View key={label} style={styles.metric}>
+            <Text style={styles.count}>{count}</Text>
+            <Copy>{label}</Copy>
+          </View>
+        ))}
+      </View>
+    </Panel>
   );
 }
 
@@ -82,6 +118,7 @@ function ManageEvent({ event, bookings, onBack, onEdit, onStatus, onScan }) {
   const [reason, setReason] = useState('');
   const [message, setMessage] = useState('');
   const [code, setCode] = useState('');
+  const [showAttendees, setShowAttendees] = useState(false);
   const related = bookings.filter((booking) => booking.eventId === event.id);
   const reserved = reservedPlaces(event, related);
   const cancelled = related.filter((booking) => booking.status === 'Cancelled').reduce((total, item) => total + item.tickets.length, 0);
@@ -117,6 +154,15 @@ function ManageEvent({ event, bookings, onBack, onEdit, onStatus, onScan }) {
         <Copy>{reserved} reserved · {cancelled} cancelled · {checkedIn} checked in</Copy>
         <Copy>{remaining === null ? 'Unlimited capacity' : `${remaining} places remaining`}</Copy>
       </Panel>
+      <Action label={showAttendees ? 'Hide attendees' : 'View attendees'} icon="people-outline" secondary onPress={() => setShowAttendees(!showAttendees)} />
+      {showAttendees && (
+        <Panel title="Attendees">
+          {related.length === 0 && <Copy>No reservations for this event yet.</Copy>}
+          {related.flatMap((booking) => booking.tickets.map((ticket) => (
+            <Copy key={ticket.code}>{ticket.name} · {booking.status === 'Cancelled' ? 'Cancelled' : ticket.checkedInAt ? 'Checked in' : 'Reserved'}</Copy>
+          )))}
+        </Panel>
+      )}
       {['Draft', 'Rejected', 'Published', 'Rescheduled', 'Closed'].includes(event.status) && <Action label="Edit event" secondary onPress={onEdit} />}
       {['Draft', 'Rejected'].includes(event.status) && <Action label="Submit for review" onPress={() => update('Submitted')} />}
       {publicEvent && (
@@ -138,6 +184,12 @@ function ManageEvent({ event, bookings, onBack, onEdit, onStatus, onScan }) {
     </Page>
   );
 }
+
+const styles = StyleSheet.create({
+  metrics: { flexDirection: 'row', flexWrap: 'wrap', rowGap: 12 },
+  metric: { width: '50%', paddingRight: 8 },
+  count: { color: colors.purpleDark, fontFamily: headingFont, fontSize: 25 },
+});
 
 export function AdminScreen({ data, events, onAccess, onStatus, onReport, onBack }) {
   const [reason, setReason] = useState('');

@@ -5,28 +5,28 @@ import { Action, Choices, Copy, Field, Page, Panel } from '../components/FlowUI'
 import { categories } from '../data/events';
 import { colors } from '../theme';
 
-export function DemoSignIn({ name, onSignIn, onBack }) {
-  const [value, setValue] = useState(name);
-  return (
-    <Page title="Welcome to Eventora" onBack={onBack}>
-      <Copy>Create or reopen the demo profile on this device. Use a sample name.</Copy>
-      <Field label="Display name" value={value} onChangeText={setValue} autoCapitalize="words" maxLength={70} />
-      <Action label="Continue with demo profile" onPress={() => onSignIn(value.trim())} disabled={!value.trim()} />
-    </Page>
-  );
-}
-
 export function ProfileScreen({ signedIn, profile, onOpen }) {
   return (
     <Page title="Profile">
       <Panel title={signedIn ? profile.name : 'Guest'}>
         <Copy>{signedIn ? `${profile.city} · Demo profile` : 'Browse events as a guest or set up a demo profile to reserve places.'}</Copy>
-        <Action label={signedIn ? 'Edit profile and interests' : 'Set up demo profile'} onPress={() => onOpen(signedIn ? 'settings' : 'signIn')} />
+        {signedIn ? (
+          <>
+            {profile.email && <Copy>{profile.email}</Copy>}
+            <Action label="Edit profile and interests" onPress={() => onOpen('settings')} />
+            {!profile.email && <Action label="Finish account setup" secondary onPress={() => onOpen('signUp')} />}
+          </>
+        ) : (
+          <>
+            <Action label="Log in" onPress={() => onOpen('signIn')} />
+            {!profile.email && <Action label="Sign up" secondary onPress={() => onOpen('signUp')} />}
+          </>
+        )}
       </Panel>
       <PersonalTools onOpen={onOpen} />
       <Panel title="Demo tools">
         <Copy>Try the organizer and moderator workflows on this device.</Copy>
-        <Action label="Organizer workspace" secondary onPress={() => onOpen('organizer')} />
+        <Action label="Organizer dashboard" secondary onPress={() => onOpen('organizer')} />
         <Action label="Admin workspace" secondary onPress={() => onOpen('admin')} />
       </Panel>
     </Page>
