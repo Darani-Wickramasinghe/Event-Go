@@ -10,6 +10,7 @@ import React, {
 import * as Location from 'expo-location';
 
 export const LOCATION_STATUS = {
+  IDLE: 'idle', // autoRequest is off and nothing was requested yet
   LOADING: 'loading',
   READY: 'ready', // GPS working
   DENIED: 'denied', // permission refused
@@ -20,8 +21,11 @@ const WEAK_SIGNAL_ACCURACY_M = 100;
 
 const LocationContext = createContext(null);
 
-export function LocationProvider({ children }) {
-  const [status, setStatus] = useState(LOCATION_STATUS.LOADING);
+// autoRequest=false: do not show the permission dialog on start; call requestAndStart() later.
+export function LocationProvider({ children, autoRequest = true }) {
+  const [status, setStatus] = useState(
+    autoRequest ? LOCATION_STATUS.LOADING : LOCATION_STATUS.IDLE
+  );
   const [gpsCoords, setGpsCoords] = useState(null);
   const [manualOrigin, setManualOrigin] = useState(null); // {name, latitude, longitude}
   const [weakSignal, setWeakSignal] = useState(false);
@@ -52,9 +56,14 @@ export function LocationProvider({ children }) {
   const startWatching = useCallback(async () => {
     stopWatching();
     try {
-      // Quick first fix from cache so the UI is not empty.
-      const last = await Location.getLastKnownPositionAsync();
-      if (last) handlePosition(last);
+      // Quick first fix from cache so the UI is not empty. Not supported everywhere
+      // (for example web), so a failure here must not stop the live updates below.
+      try {
+        const last = await Location.getLastKnownPositionAsync();
+        if (last) handlePosition(last);
+      } catch (e) {
+        // ignore: watchPositionAsync below will provide the first fix
+      }
 
       subscription.current = await Location.watchPositionAsync(
         {
@@ -95,9 +104,9 @@ export function LocationProvider({ children }) {
   }, [startWatching]);
 
   useEffect(() => {
-    requestAndStart();
+    if (autoRequest) requestAndStart();
     return stopWatching;
-  }, [requestAndStart, stopWatching]);
+  }, [autoRequest, requestAndStart, stopWatching]);
 
   const chooseManualCity = useCallback((city) => setManualOrigin(city), []);
   const useMyLocation = useCallback(() => {
