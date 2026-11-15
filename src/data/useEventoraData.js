@@ -2,6 +2,7 @@ import { randomUUID } from 'expo-crypto';
 import { useMemo } from 'react';
 import { changeEventStatus, eventFromDraft } from './eventOperations';
 import { events as seedEvents, eventCoverSource, formatEventDate } from './events';
+import { buildEventChangeNotifications, safeMergeNotifications, DELIVERY_STATUS } from './notifications';
 import { cancellationReason, eventTime, makeReservation, scanTicket } from './reservations';
 import { useDemoStore } from './useDemoStore';
 
@@ -36,6 +37,7 @@ export function useEventoraData() {
         notifications: [{
           id: `confirmed-${booking.id}`, eventId, bookingId: booking.id, title: 'Reservation confirmed',
           message: `${event.title} · ${event.date}`, read: false,
+          deliveryStatus: DELIVERY_STATUS.DELIVERED, deliveredAt: new Date().toISOString(),
         }, ...current.notifications],
       };
     });
@@ -55,6 +57,7 @@ export function useEventoraData() {
         notifications: [{
           id: `cancelled-${bookingId}`, eventId: event.id, bookingId, title: 'Reservation cancelled',
           message: `${event.title} · Your places have been released.`, read: false,
+          deliveryStatus: DELIVERY_STATUS.DELIVERED, deliveredAt: new Date().toISOString(),
         }, ...current.notifications],
       };
     });
@@ -81,9 +84,15 @@ export function useEventoraData() {
       if (publish && event.status !== 'Draft') throw new Error('Only drafts can be published.');
       const status = publish ? 'Published' : publicEvent && moved && event.status !== 'Closed' ? 'Rescheduled' : event.status;
       const reason = publish ? '' : publicEvent && moved ? draft.reason.trim() : event.reason;
-      const notices = affected && moved
-        ? [{ id: randomUUID(), eventId: id, title: `${event.title} was updated`, message: `${reason} · ${details.date} · ${details.venue}`, read: false }, ...current.notifications]
-        : current.notifications;
+      const updateNotices = (publicEvent && moved)
+        ? buildEventChangeNotifications({
+            before: event,
+            after: { ...event, ...details, status, reason },
+            bookings: current.bookings,
+            existingNotifications: current.notifications,
+          })
+        : [];
+      const notices = safeMergeNotifications(current.notifications, updateNotices);
       return {
         ...current,
         eventEdits: { ...current.eventEdits, [id]: { ...details, status, reason, rescheduled: publicEvent && moved ? true : event.rescheduled } },
