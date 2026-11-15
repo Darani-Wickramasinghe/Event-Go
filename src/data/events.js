@@ -8,6 +8,17 @@ export const categories = [
   { label: 'Sports', icon: 'football-outline', color: '#F26055' },
 ];
 
+function safeRequireImage(path) {
+  try {
+    if (typeof require !== 'undefined') {
+      return require(path);
+    }
+  } catch (e) {
+    // Ignore in Node environment
+  }
+  return { uri: path };
+}
+
 // These sample events let us build and test the UI before the API is ready.
 export const events = [
   {
@@ -27,7 +38,7 @@ export const events = [
     day: '21',
     date: 'Sat, 21 Nov · 5:30 PM',
     price: 1500,
-    image: require('../../assets/music.jpg'),
+    image: safeRequireImage('../../assets/music.jpg'),
     description: 'Spend an evening outdoors with live sets from local artists. Bring a picnic blanket and arrive early to find your spot.',
   },
   {
@@ -47,7 +58,7 @@ export const events = [
     day: '22',
     date: 'Sun, 22 Nov · 10:00 AM',
     price: 0,
-    image: require('../../assets/tech.jpg'),
+    image: safeRequireImage('../../assets/tech.jpg'),
     description: 'Meet local developers, see student projects, and join a beginner-friendly discussion about building your first app.',
   },
   {
@@ -67,7 +78,7 @@ export const events = [
     day: '28',
     date: 'Sat, 28 Nov · 4:00 PM',
     price: 0,
-    image: require('../../assets/food.jpg'),
+    image: safeRequireImage('../../assets/food.jpg'),
     description: 'Explore Sri Lankan street food and meet independent food vendors at an open-air market. Admission is free. Food is sold separately.',
   },
   {
@@ -87,7 +98,7 @@ export const events = [
     day: '29',
     date: 'Sun, 29 Nov · 11:00 AM',
     price: 0,
-    image: require('../../assets/art.jpg'),
+    image: safeRequireImage('../../assets/art.jpg'),
     description: 'Discover work from emerging artists and hear the stories behind their pieces at this weekend exhibition.',
   },
 ];
@@ -97,10 +108,10 @@ export function formatPrice(price) {
 }
 
 export const eventImages = {
-  Music: require('../../assets/music.jpg'),
-  IT: require('../../assets/tech.jpg'),
-  Food: require('../../assets/food.jpg'),
-  Art: require('../../assets/art.jpg'),
+  Music: safeRequireImage('../../assets/music.jpg'),
+  IT: safeRequireImage('../../assets/tech.jpg'),
+  Food: safeRequireImage('../../assets/food.jpg'),
+  Art: safeRequireImage('../../assets/art.jpg'),
 };
 
 export function eventCoverSource(coverImage, fallback, category) {
