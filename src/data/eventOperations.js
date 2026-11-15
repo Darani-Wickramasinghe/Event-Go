@@ -1,6 +1,6 @@
-import { dateRangeError } from './eventFilters';
-import { formatEventDate } from './events';
-import { eventTime, reservedPlaces } from './reservations';
+import { dateRangeError } from './eventFilters.js';
+import { formatEventDate } from './events.js';
+import { eventTime, reservedPlaces } from './reservations.js';
 
 export function eventFromDraft(draft, id, bookings) {
   const title = draft.title.trim();
