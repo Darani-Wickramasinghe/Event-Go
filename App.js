@@ -11,6 +11,7 @@ import SideMenu from './src/components/SideMenu';
 import { defaultFilters } from './src/data/eventFilters';
 import { eventTime, registrationStatus, remainingPlaces, reservedPlaces } from './src/data/reservations';
 import { useEventoraData } from './src/data/useEventoraData';
+import { registerUser, loginUser, logoutUser } from './src/services/authService';
 import AccountScreen from './src/screens/AccountScreen';
 import CalendarScreen from './src/screens/CalendarScreen';
 import DiscoveryScreen from './src/screens/DiscoveryScreen';
@@ -121,7 +122,7 @@ function Eventora({ fontsReady }) {
   }
 
   function signOut() {
-    update((current) => ({ ...current, signedIn: false }));
+    update((current) => logoutUser(current));
     switchRole();
   }
 
@@ -222,9 +223,13 @@ function Eventora({ fontsReady }) {
           onSwitch={() => replace(signUp ? 'signIn' : 'signUp', { next: page.next, entry: page.entry })}
           onContinue={({ name, email, city, organization }) => {
             update((current) => {
-              if (signUp && current.profile.email) throw new Error('This device already has a demo account. Use Log in.');
-              if (!signUp && current.profile.email !== email) throw new Error('That email does not match a demo account on this device.');
-              return { ...current, signedIn: true, profile: signUp ? { ...current.profile, name, email, city, organization } : current.profile };
+              if (signUp) {
+                const result = registerUser({ name, email, city, role, organization }, current);
+                return { ...current, ...result };
+              } else {
+                const result = loginUser({ email }, current);
+                return { ...current, ...result };
+              }
             });
             if (page.next) replace(page.next.name, page.next);
             else setPages((current) => current.slice(0, -1));

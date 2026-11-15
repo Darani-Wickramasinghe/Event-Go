@@ -2,7 +2,7 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/.idea/EventGo.iml" filepath="$PROJECT_DIR$/.idea/EventGo.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/eventora.iml" filepath="$PROJECT_DIR$/.idea/eventora.iml" />
     </modules>
   </component>
 </project>

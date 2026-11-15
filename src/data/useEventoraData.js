@@ -1,11 +1,12 @@
 import { randomUUID } from 'expo-crypto';
 import { useMemo } from 'react';
-import { cancelRegistration, createRegistration } from '../repositories/registrationRepository';
-import { checkInTicket } from '../repositories/ticketRepository';
-import { changeEventStatus, eventFromDraft } from './eventOperations';
-import { events as seedEvents, eventCoverSource, formatEventDate } from './events';
-import { cancellationReason, eventTime, makeReservation, scanTicket } from './reservations';
-import { useDemoStore } from './useDemoStore';
+import { createRegistration, cancelRegistration as cancelRepoRegistration } from '../repositories/registrationRepository.js';
+import { checkInTicket } from '../repositories/ticketRepository.js';
+import { events as seedEvents, eventCoverSource, formatEventDate } from './events.js';
+import { useDemoStore } from './useDemoStore.js';
+import { registerForFreeEvent, cancelRegistration } from '../services/registrationService.js';
+import { createOrganizerEvent, updateOrganizerEvent, transitionEventStatus } from '../services/eventBusinessService.js';
+import { validateAndCheckInTicket } from '../services/ticketService.js';
 
 function listEvents(data) {
   const firstDay = Date.parse(data.demoDate);
@@ -28,12 +29,17 @@ export function useEventoraData() {
   function reserve(eventId, names, id) {
     const codes = names.map(() => randomUUID());
     update((current) => {
-      if (!current.signedIn) throw new Error('Set up a demo profile first.');
       const event = listEvents(current).find((item) => item.id === eventId);
-      const booking = makeReservation(event, current.bookings, names, id, codes);
-      if (current.bookings.some((item) => item.id === booking.id)) return current;
+      const { booking, isDuplicateRequest } = registerForFreeEvent(
+        { userProfile: current.profile, signedIn: current.signedIn },
+        event,
+        names,
+        id,
+        current.bookings,
+        codes
+      );
+      if (isDuplicateRequest || current.bookings.some((item) => item.id === booking.id)) return current;
 
-      // Integrate Member 2 registration repository integrity checks & persistence
       createRegistration({ eventId, names, userId: 'demo-user', registrationId: id, codes });
 
       return {
@@ -50,14 +56,17 @@ export function useEventoraData() {
 
   function cancel(bookingId) {
     update((current) => {
-      if (!current.signedIn) throw new Error('Open your demo profile first.');
       const booking = current.bookings.find((item) => item.id === bookingId);
-      const event = listEvents(current).find((item) => item.id === booking.eventId);
-      const reason = cancellationReason(event, booking);
-      if (reason) throw new Error(reason);
+      const event = listEvents(current).find((item) => item.id === booking?.eventId);
 
-      // Integrate Member 2 registration repository cascade cancellation
-      cancelRegistration(bookingId, 'User requested cancellation');
+      cancelRegistration(
+        { userProfile: current.profile, signedIn: current.signedIn, role: current.profile.role },
+        bookingId,
+        event,
+        current.bookings
+      );
+
+      cancelRepoRegistration(bookingId, 'User requested cancellation');
 
       return {
         ...current,
@@ -74,31 +83,40 @@ export function useEventoraData() {
     const id = eventId ?? randomUUID();
     update((current) => {
       if (!current.signedIn) throw new Error('Log in to manage events.');
-      const details = eventFromDraft(draft, id, current.bookings);
-      if (publish && eventTime(details, details.endTime) <= Date.now()) throw new Error('Set a future schedule before publishing.');
-      if (!eventId) {
-        const organizer = current.profile.organization || current.organizerApplication?.organization || current.profile.name || 'Eventora Demo Organizer';
-        const event = { ...details, organizer, status: publish ? 'Published' : 'Draft' };
-        return { ...current, createdEvents: [...current.createdEvents, event] };
+      const role = current.profile.role || 'organizer';
+      const existingEvent = listEvents(current).find((item) => item.id === id);
+
+      if (!eventId && !existingEvent) {
+        const newEvent = createOrganizerEvent(
+          current.profile,
+          role,
+          { ...draft, id, publish },
+          current.bookings
+        );
+        return { ...current, createdEvents: [...current.createdEvents, newEvent] };
       }
-      const event = listEvents(current).find((item) => item.id === id);
-      const moved = ['startDate', 'startTime', 'endTime', 'city', 'venue', 'latitude', 'longitude'].some((key) => details[key] !== event[key]);
+
+      const updatedEvent = updateOrganizerEvent(
+        current.profile,
+        role,
+        existingEvent,
+        { ...draft, publish },
+        current.bookings
+      );
+
+      const moved = ['startDate', 'startTime', 'endTime', 'city', 'venue', 'latitude', 'longitude'].some((key) => updatedEvent[key] !== existingEvent[key]);
       const affected = current.bookings.some((booking) => booking.eventId === id && booking.status === 'Confirmed');
-      if (affected && details.price !== event.price) throw new Error('Price cannot change while reservations are active.');
-      const publicEvent = ['Published', 'Rescheduled', 'Closed'].includes(event.status);
-      if (publicEvent && moved && !draft.reason?.trim()) throw new Error('Enter a reason for changing the schedule or venue.');
-      if (publicEvent && moved && eventTime(details, details.endTime) <= Date.now()) throw new Error('Set a future schedule for the event.');
-      if (publish && event.status !== 'Draft') throw new Error('Only drafts can be published.');
-      const status = publish ? 'Published' : publicEvent && moved && event.status !== 'Closed' ? 'Rescheduled' : event.status;
-      const reason = publish ? '' : publicEvent && moved ? draft.reason.trim() : event.reason;
+      const publicEvent = ['Published', 'Rescheduled', 'Closed'].includes(existingEvent.status);
+
       const notices = affected && moved
-        ? [{ id: randomUUID(), eventId: id, title: `${event.title} was updated`, message: `${reason} · ${details.date} · ${details.venue}`, read: false }, ...current.notifications]
+        ? [{ id: randomUUID(), eventId: id, title: `${existingEvent.title} was updated`, message: `${updatedEvent.reason} · ${updatedEvent.date} · ${updatedEvent.venue}`, read: false }, ...current.notifications]
         : current.notifications;
+
       return {
         ...current,
-        eventEdits: { ...current.eventEdits, [id]: { ...details, status, reason, rescheduled: publicEvent && moved ? true : event.rescheduled } },
+        eventEdits: { ...current.eventEdits, [id]: updatedEvent },
         notifications: notices,
-        audit: [`${event.title} · ${publish ? 'Published' : 'Updated'}${publicEvent && moved ? ` · ${reason}` : ''}`, ...current.audit],
+        audit: [`${existingEvent.title} · ${publish ? 'Published' : 'Updated'}${publicEvent && moved ? ` · ${updatedEvent.reason}` : ''}`, ...current.audit],
       };
     });
   }
@@ -107,27 +125,25 @@ export function useEventoraData() {
     update((current) => {
       if (!current.signedIn) throw new Error('Log in to manage events.');
       const event = listEvents(current).find((item) => item.id === eventId);
-      const ended = eventTime(event, event.endTime) <= Date.now();
-      const publicEvent = ['Published', 'Rescheduled', 'Closed'].includes(event.status);
-      const allowed = event.status === 'Draft' ? ['Published']
-        : event.status === 'Cancelled' || (publicEvent && ended) ? ['Archived']
-        : ['Published', 'Rescheduled'].includes(event.status) ? ['Closed', 'Cancelled']
-        : event.status === 'Closed' ? ['Cancelled'] : [];
-      if (!allowed.includes(status)) throw new Error('This status change is unavailable.');
-      return changeEventStatus(current, event, status, reason);
+      const role = current.profile.role || 'organizer';
+      return transitionEventStatus(current.profile, role, current, event, status, reason);
     });
   }
 
   function checkIn(eventId, code) {
     update((current) => {
-      if (!current.signedIn) throw new Error('Log in to check in attendees.');
       const event = listEvents(current).find((item) => item.id === eventId);
-      const checkedIn = scanTicket(event, current.bookings, code);
+      const role = current.profile.role || 'organizer';
+      const result = validateAndCheckInTicket(
+        { signedIn: current.signedIn, role },
+        event,
+        code,
+        current.bookings
+      );
 
-      // Integrate Member 2 ticket repository check-in status
       checkInTicket(eventId, code);
 
-      return { ...current, bookings: current.bookings.map((item) => item.id === checkedIn.id ? checkedIn : item) };
+      return { ...current, bookings: current.bookings.map((item) => item.id === result.booking.id ? result.booking : item) };
     });
   }
 

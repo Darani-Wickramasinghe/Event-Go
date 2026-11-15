@@ -6,7 +6,8 @@
   "scripts": {
     "start": "expo start",
     "web": "expo start --web",
-    "android": "expo start --android"
+    "android": "expo start --android",
+    "test": "node src/tests/runTests.js"
   },
   "dependencies": {
     "@expo/metro-runtime": "~6.1.2",
