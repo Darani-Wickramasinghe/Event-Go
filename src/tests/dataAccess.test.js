@@ -1,3 +1,4 @@
+import './polyfill.js';
 /**
  * Eventora Data Access & Integrity Unit Tests
  * Member 2: Database and Data Layer
