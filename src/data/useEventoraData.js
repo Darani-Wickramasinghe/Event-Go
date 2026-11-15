@@ -1,5 +1,7 @@
 import { randomUUID } from 'expo-crypto';
 import { useMemo } from 'react';
+import { cancelRegistration, createRegistration } from '../repositories/registrationRepository';
+import { checkInTicket } from '../repositories/ticketRepository';
 import { changeEventStatus, eventFromDraft } from './eventOperations';
 import { events as seedEvents, eventCoverSource, formatEventDate } from './events';
 import { cancellationReason, eventTime, makeReservation, scanTicket } from './reservations';
@@ -30,6 +32,10 @@ export function useEventoraData() {
       const event = listEvents(current).find((item) => item.id === eventId);
       const booking = makeReservation(event, current.bookings, names, id, codes);
       if (current.bookings.some((item) => item.id === booking.id)) return current;
+
+      // Integrate Member 2 registration repository integrity checks & persistence
+      createRegistration({ eventId, names, userId: 'demo-user', registrationId: id, codes });
+
       return {
         ...current,
         bookings: [booking, ...current.bookings],
@@ -49,6 +55,10 @@ export function useEventoraData() {
       const event = listEvents(current).find((item) => item.id === booking.eventId);
       const reason = cancellationReason(event, booking);
       if (reason) throw new Error(reason);
+
+      // Integrate Member 2 registration repository cascade cancellation
+      cancelRegistration(bookingId, 'User requested cancellation');
+
       return {
         ...current,
         bookings: current.bookings.map((item) => item.id === bookingId ? { ...item, status: 'Cancelled' } : item),
@@ -113,6 +123,10 @@ export function useEventoraData() {
       if (!current.signedIn) throw new Error('Log in to check in attendees.');
       const event = listEvents(current).find((item) => item.id === eventId);
       const checkedIn = scanTicket(event, current.bookings, code);
+
+      // Integrate Member 2 ticket repository check-in status
+      checkInTicket(eventId, code);
+
       return { ...current, bookings: current.bookings.map((item) => item.id === checkedIn.id ? checkedIn : item) };
     });
   }
