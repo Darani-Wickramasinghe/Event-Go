@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Action, Choices, Copy, Page, Panel } from '../components/FlowUI';
+import { buildReminders } from '../data/notifications';
 import { bookingStatus, eventTime } from '../data/reservations';
 
 export default function NotificationsScreen({ data, events, onRead, onOpen, onSettings, onBack }) {
@@ -10,17 +11,13 @@ export default function NotificationsScreen({ data, events, onRead, onOpen, onSe
     return () => clearInterval(timer);
   }, []);
 
-  const { reminderHours, reminders: enabled } = data.profile;
-  const reminders = data.signedIn && enabled ? data.bookings.flatMap((booking) => {
-    const event = events.find((item) => item.id === booking.eventId);
-    if (!event || !['Confirmed', 'Rescheduled'].includes(bookingStatus(event, booking, now))) return [];
-    const startsAt = eventTime(event);
-    if (startsAt <= now || startsAt - now > reminderHours * 3600000) return [];
-    const id = `reminder-${booking.id}-${startsAt}`;
-    return [{
-      id, eventId: event.id, bookingId: booking.id, title: 'Upcoming event reminder',
-      message: `${event.title} · ${event.date}`, read: data.readReminders.includes(id),
-    }];
+  const reminders = data.signedIn ? buildReminders({
+    events,
+    bookings: data.bookings,
+    profile: data.profile,
+    existingNotifications: data.notifications,
+    readReminders: data.readReminders,
+    now,
   }) : [];
   const notices = data.signedIn ? [...reminders, ...data.notifications] : [];
   const unread = notices.filter((notice) => !notice.read);

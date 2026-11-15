@@ -1,5 +1,10 @@
 import { randomUUID } from 'expo-crypto';
 import { useMemo } from 'react';
+import { changeEventStatus, eventFromDraft } from './eventOperations';
+import { events as seedEvents, eventCoverSource, formatEventDate } from './events';
+import { buildEventChangeNotifications, safeMergeNotifications, DELIVERY_STATUS } from './notifications';
+import { cancellationReason, eventTime, makeReservation, scanTicket } from './reservations';
+import { useDemoStore } from './useDemoStore';
 import { createRegistration, cancelRegistration as cancelRepoRegistration } from '../repositories/registrationRepository.js';
 import { checkInTicket } from '../repositories/ticketRepository.js';
 import { events as seedEvents, eventCoverSource, formatEventDate } from './events.js';
@@ -48,6 +53,7 @@ export function useEventoraData() {
         notifications: [{
           id: `confirmed-${booking.id}`, eventId, bookingId: booking.id, title: 'Reservation confirmed',
           message: `${event.title} · ${event.date}`, read: false,
+          deliveryStatus: DELIVERY_STATUS.DELIVERED, deliveredAt: new Date().toISOString(),
         }, ...current.notifications],
       };
     });
@@ -74,6 +80,7 @@ export function useEventoraData() {
         notifications: [{
           id: `cancelled-${bookingId}`, eventId: event.id, bookingId, title: 'Reservation cancelled',
           message: `${event.title} · Your places have been released.`, read: false,
+          deliveryStatus: DELIVERY_STATUS.DELIVERED, deliveredAt: new Date().toISOString(),
         }, ...current.notifications],
       };
     });
@@ -106,6 +113,22 @@ export function useEventoraData() {
 
       const moved = ['startDate', 'startTime', 'endTime', 'city', 'venue', 'latitude', 'longitude'].some((key) => updatedEvent[key] !== existingEvent[key]);
       const affected = current.bookings.some((booking) => booking.eventId === id && booking.status === 'Confirmed');
+      if (affected && details.price !== event.price) throw new Error('Price cannot change while reservations are active.');
+      const publicEvent = ['Published', 'Rescheduled', 'Closed'].includes(event.status);
+      if (publicEvent && moved && !draft.reason?.trim()) throw new Error('Enter a reason for changing the schedule or venue.');
+      if (publicEvent && moved && eventTime(details, details.endTime) <= Date.now()) throw new Error('Set a future schedule for the event.');
+      if (publish && event.status !== 'Draft') throw new Error('Only drafts can be published.');
+      const status = publish ? 'Published' : publicEvent && moved && event.status !== 'Closed' ? 'Rescheduled' : event.status;
+      const reason = publish ? '' : publicEvent && moved ? draft.reason.trim() : event.reason;
+      const updateNotices = (publicEvent && moved)
+        ? buildEventChangeNotifications({
+            before: event,
+            after: { ...event, ...details, status, reason },
+            bookings: current.bookings,
+            existingNotifications: current.notifications,
+          })
+        : [];
+      const notices = safeMergeNotifications(current.notifications, updateNotices);
       const publicEvent = ['Published', 'Rescheduled', 'Closed'].includes(existingEvent.status);
 
       const notices = affected && moved
