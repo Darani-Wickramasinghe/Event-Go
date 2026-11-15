@@ -1,11 +1,12 @@
 import { randomUUID } from 'expo-crypto';
 import { useMemo } from 'react';
-import { events as seedEvents, eventCoverSource, formatEventDate } from './events';
-import { useDemoStore } from './useDemoStore';
-import { registerForFreeEvent, cancelRegistration } from '../services/registrationService';
-import { createOrganizerEvent, updateOrganizerEvent, transitionEventStatus } from '../services/eventBusinessService';
-import { validateAndCheckInTicket } from '../services/ticketService';
-import { eventTime } from './reservations';
+import { createRegistration, cancelRegistration as cancelRepoRegistration } from '../repositories/registrationRepository.js';
+import { checkInTicket } from '../repositories/ticketRepository.js';
+import { events as seedEvents, eventCoverSource, formatEventDate } from './events.js';
+import { useDemoStore } from './useDemoStore.js';
+import { registerForFreeEvent, cancelRegistration } from '../services/registrationService.js';
+import { createOrganizerEvent, updateOrganizerEvent, transitionEventStatus } from '../services/eventBusinessService.js';
+import { validateAndCheckInTicket } from '../services/ticketService.js';
 
 function listEvents(data) {
   const firstDay = Date.parse(data.demoDate);
@@ -38,6 +39,9 @@ export function useEventoraData() {
         codes
       );
       if (isDuplicateRequest || current.bookings.some((item) => item.id === booking.id)) return current;
+
+      createRegistration({ eventId, names, userId: 'demo-user', registrationId: id, codes });
+
       return {
         ...current,
         bookings: [booking, ...current.bookings],
@@ -61,6 +65,8 @@ export function useEventoraData() {
         event,
         current.bookings
       );
+
+      cancelRepoRegistration(bookingId, 'User requested cancellation');
 
       return {
         ...current,
@@ -134,6 +140,9 @@ export function useEventoraData() {
         code,
         current.bookings
       );
+
+      checkInTicket(eventId, code);
+
       return { ...current, bookings: current.bookings.map((item) => item.id === result.booking.id ? result.booking : item) };
     });
   }
