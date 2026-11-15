@@ -1,6 +1,7 @@
 import { dateRangeError } from './eventFilters.js';
 import { formatEventDate } from './events.js';
 import { eventTime, reservedPlaces } from './reservations.js';
+import { buildEventChangeNotifications, safeMergeNotifications } from './notifications.js';
 
 export function eventFromDraft(draft, id, bookings) {
   const title = draft.title.trim();
@@ -45,9 +46,16 @@ export function changeEventStatus(data, event, status, reason, now = Date.now())
   const bookings = status === 'Cancelled'
     ? data.bookings.map((booking) => booking.eventId === event.id && booking.status === 'Confirmed' ? { ...booking, status: 'Cancelled' } : booking)
     : data.bookings;
-  const notifications = affected && status === 'Cancelled'
-    ? [{ id: `${event.id}-${now}`, eventId: event.id, title: `${event.title} was cancelled`, message: reason.trim(), read: false }, ...data.notifications]
-    : data.notifications;
+  const changeNotices = status === 'Cancelled'
+    ? buildEventChangeNotifications({
+        before: event,
+        after: { ...event, status: 'Cancelled', reason: reason.trim() },
+        bookings: data.bookings,
+        existingNotifications: data.notifications,
+        now,
+      })
+    : [];
+  const notifications = safeMergeNotifications(data.notifications, changeNotices);
   return {
     ...data, bookings, eventEdits, notifications,
     audit: [`${event.title} · ${status}${reason ? ` · ${reason.trim()}` : ''}`, ...data.audit],

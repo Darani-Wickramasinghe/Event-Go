@@ -5,11 +5,13 @@ import { Action, Choices, Copy, Field, Page, Panel } from '../components/FlowUI'
 import TicketScanner from '../components/TicketScanner';
 import EventCoverPicker from '../components/EventCoverPicker';
 import DateField from '../components/DateField';
+import AttendanceDashboard from '../components/AttendanceDashboard';
 import VenuePickerScreen from './VenuePickerScreen';
 import { categories, eventCoverSource, formatPrice } from '../data/events';
 import { eventFromDraft } from '../data/eventOperations';
 import { isMapPoint } from '../data/venueSearch';
 import { exportAttendanceCsv } from '../data/attendanceExport';
+import { getOrganizerEvents } from '../data/attendance';
 import { eventTime, remainingPlaces, reservedPlaces, sriLankaDate } from '../data/reservations';
 import { colors, headingFont } from '../theme';
 
@@ -25,7 +27,7 @@ const eventGroups = {
 const workspaceTabs = [
   { label: 'Overview', icon: 'grid-outline' },
   { label: 'Events', icon: 'calendar-outline' },
-  { label: 'Attendees', icon: 'people-outline' },
+  { label: 'Attendance', icon: 'people-outline' },
   { label: 'Check-in', icon: 'qr-code-outline' },
 ];
 
@@ -41,13 +43,14 @@ export function OrganizerScreen({ data, events, onSave, onStatus, onScan, onBack
   const [tab, setTab] = useState('Overview');
   const [group, setGroup] = useState('All');
   const [query, setQuery] = useState('');
-  const visibleEvents = events.filter((event) => (!eventGroups[group] || eventGroups[group].includes(organizerEventStatus(event)))
+  const myEvents = getOrganizerEvents(events, data.profile);
+  const visibleEvents = myEvents.filter((event) => (!eventGroups[group] || eventGroups[group].includes(organizerEventStatus(event)))
     && event.title.toLowerCase().includes(query.trim().toLowerCase()));
-  const live = events.filter((event) => eventGroups.Live.includes(organizerEventStatus(event)));
+  const live = myEvents.filter((event) => eventGroups.Live.includes(organizerEventStatus(event)));
   const upcoming = [...live].sort((first, second) => eventTime(first) - eventTime(second));
   const attendeeEvents = [
     ...upcoming,
-    ...events.filter((event) => event.status !== 'Draft' && !live.includes(event))
+    ...myEvents.filter((event) => event.status !== 'Draft' && !live.includes(event))
       .sort((first, second) => eventTime(second) - eventTime(first)),
   ];
   const today = sriLankaDate();
@@ -122,15 +125,13 @@ export function OrganizerScreen({ data, events, onSave, onStatus, onScan, onBack
             {!visibleEvents.length && <Copy>No events in this view.</Copy>}
           </>
         )}
-        {tab === 'Attendees' && (
-          <Section title="Attendee lists">
-            {attendeeEvents.map((event) => (
-              <EventToolRow key={event.id} event={event} icon="people-outline"
-                detail={`${reservedPlaces(event, data.bookings)} reserved · ${event.date}`}
-                onPress={() => openEvent(event, 'attendees')} />
-            ))}
-            {!attendeeEvents.length && <Copy>Attendee lists appear after an event is published.</Copy>}
-          </Section>
+        {(tab === 'Attendance' || tab === 'Attendees') && (
+          <AttendanceDashboard
+            events={myEvents.filter((e) => e.status !== 'Draft').length > 0 ? myEvents.filter((e) => e.status !== 'Draft') : myEvents}
+            bookings={data.bookings}
+            onCheckIn={onScan}
+            onOpenScanner={(evt) => openEvent(evt, 'checkIn')}
+          />
         )}
         {tab === 'Check-in' && (
           <>
@@ -238,11 +239,13 @@ function NavRow({ label, icon, onPress }) {
 }
 
 function DashboardSummary({ events, bookings }) {
+  const eventIds = new Set(events.map((e) => e.id));
+  const myBookings = bookings.filter((b) => eventIds.has(b.eventId));
   const metrics = [
     ['calendar-outline', 'Live events', events.filter((event) => eventGroups.Live.includes(organizerEventStatus(event))).length],
     ['document-text-outline', 'Drafts', events.filter((event) => event.status === 'Draft').length],
-    ['ticket-outline', 'Reserved places', bookings.filter((booking) => booking.status === 'Confirmed').reduce((total, booking) => total + booking.tickets.length, 0)],
-    ['checkmark-circle-outline', 'Checked in', bookings.filter((booking) => booking.status === 'Confirmed').flatMap((booking) => booking.tickets).filter((ticket) => ticket.checkedInAt).length],
+    ['ticket-outline', 'Reserved places', myBookings.filter((booking) => booking.status === 'Confirmed').reduce((total, booking) => total + booking.tickets.length, 0)],
+    ['checkmark-circle-outline', 'Checked in', myBookings.filter((booking) => booking.status === 'Confirmed').flatMap((booking) => booking.tickets).filter((ticket) => ticket.checkedInAt).length],
   ];
   return (
     <View style={styles.metrics}>
@@ -510,20 +513,14 @@ function ManageEvent({ event, bookings, initialScreen, onBack, onEdit, onStatus,
 
   if (screen === 'attendees') {
     return (
-      <Page title="Attendees" onBack={back}>
-        <Text accessibilityRole="header" style={styles.sectionTitle}>{event.title}</Text>
-        <AttendanceCounts items={attendeeCounts} />
-        {canViewSummary && <NavRow label="Event summary" icon="stats-chart-outline" onPress={openSummary} />}
-        <Field label="Search attendees" value={attendeeQuery} onChangeText={setAttendeeQuery} placeholder="Attendee name" />
-        <Choices label="Ticket status" options={['All', 'Reserved', 'Checked in', 'Cancelled']} selected={[attendeeStatus]} onSelect={setAttendeeStatus} />
-        {visibleAttendees.map((ticket) => (
-          <View key={ticket.code} style={styles.navRow}>
-            <Ionicons name="person-circle-outline" size={25} color={colors.purpleDark} />
-            <Text style={[styles.rowTitle, styles.rowBody]}>{ticket.name}</Text>
-            <StatusPill label={ticket.status} />
-          </View>
-        ))}
-        {visibleAttendees.length === 0 && <Copy>{attendees.length ? 'No attendees match this search.' : 'No reservations for this event yet.'}</Copy>}
+      <Page title="Attendance" onBack={back}>
+        <AttendanceDashboard
+          events={[event]}
+          bookings={bookings}
+          initialEventId={event.id}
+          onCheckIn={onScan}
+          onOpenScanner={() => setScreen('checkIn')}
+        />
       </Page>
     );
   }
@@ -587,7 +584,7 @@ function ManageEvent({ event, bookings, initialScreen, onBack, onEdit, onStatus,
       </View>
       {event.status !== 'Draft' && <AttendanceCounts items={attendeeCounts} />}
       {canViewSummary && <Action label="Event summary" icon="stats-chart-outline" onPress={openSummary} />}
-      <NavRow label="View attendees" icon="people-outline" onPress={() => setScreen('attendees')} />
+      <NavRow label="Attendance dashboard" icon="people-outline" onPress={() => setScreen('attendees')} />
       {(!ended || !publicEvent) && ['Draft', 'Published', 'Rescheduled', 'Closed'].includes(event.status) && <NavRow label="Edit event" icon="create-outline" onPress={onEdit} />}
       {event.status === 'Draft' && <Action label="Publish event" onPress={() => update('Published')} />}
       {publicEvent && !ended && (

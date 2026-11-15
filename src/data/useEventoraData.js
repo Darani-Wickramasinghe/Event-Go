@@ -7,6 +7,7 @@ import { useDemoStore } from './useDemoStore.js';
 import { registerForFreeEvent, cancelRegistration } from '../services/registrationService.js';
 import { createOrganizerEvent, updateOrganizerEvent, transitionEventStatus } from '../services/eventBusinessService.js';
 import { validateAndCheckInTicket } from '../services/ticketService.js';
+import { buildEventChangeNotifications, safeMergeNotifications, DELIVERY_STATUS } from './notifications.js';
 
 function listEvents(data) {
   const firstDay = Date.parse(data.demoDate);
@@ -48,6 +49,7 @@ export function useEventoraData() {
         notifications: [{
           id: `confirmed-${booking.id}`, eventId, bookingId: booking.id, title: 'Reservation confirmed',
           message: `${event.title} · ${event.date}`, read: false,
+          deliveryStatus: DELIVERY_STATUS.DELIVERED, deliveredAt: new Date().toISOString(),
         }, ...current.notifications],
       };
     });
@@ -74,6 +76,7 @@ export function useEventoraData() {
         notifications: [{
           id: `cancelled-${bookingId}`, eventId: event.id, bookingId, title: 'Reservation cancelled',
           message: `${event.title} · Your places have been released.`, read: false,
+          deliveryStatus: DELIVERY_STATUS.DELIVERED, deliveredAt: new Date().toISOString(),
         }, ...current.notifications],
       };
     });
@@ -108,9 +111,15 @@ export function useEventoraData() {
       const affected = current.bookings.some((booking) => booking.eventId === id && booking.status === 'Confirmed');
       const publicEvent = ['Published', 'Rescheduled', 'Closed'].includes(existingEvent.status);
 
-      const notices = affected && moved
-        ? [{ id: randomUUID(), eventId: id, title: `${existingEvent.title} was updated`, message: `${updatedEvent.reason} · ${updatedEvent.date} · ${updatedEvent.venue}`, read: false }, ...current.notifications]
-        : current.notifications;
+      const updateNotices = (publicEvent && moved && affected)
+        ? buildEventChangeNotifications({
+            before: existingEvent,
+            after: updatedEvent,
+            bookings: current.bookings,
+            existingNotifications: current.notifications,
+          })
+        : [];
+      const notices = safeMergeNotifications(current.notifications, updateNotices);
 
       return {
         ...current,
