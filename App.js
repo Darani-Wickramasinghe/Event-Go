@@ -19,6 +19,7 @@ import DiscoveryScreen from './src/screens/DiscoveryScreen';
 import EventDetailsScreen from './src/screens/EventDetailsScreen';
 import LaunchScreen from './src/screens/LaunchScreen';
 import MapScreen from './src/screens/MapScreen';
+import NavigationMapScreen from './src/screens/NavigationMapScreen';
 import NotificationsScreen from './src/screens/NotificationsScreen';
 import { ReportScreen } from './src/screens/OperationsScreen';
 import { OrganizerScreen } from './src/screens/OrganizerScreen';
@@ -218,8 +219,11 @@ function Eventora({ fontsReady }) {
           remaining={remainingPlaces(event, data.bookings)} unavailable={registrationStatus(event, data.bookings)}
           attendeeCount={reservedPlaces(event, data.bookings)}
           organizerProfile={eventOrganizerProfile(data, event)} onOpenOrganizer={() => open('organizerProfile', { eventId: event.id })}
-          booking={booking} onBook={book} onReport={() => open('report', { eventId: event.id })} />;
+          booking={booking} onBook={book} onReport={() => open('report', { eventId: event.id })}
+          onNavigate={() => open('navigate', { eventId: event.id })} />;
       }
+      case 'navigate':
+        return <NavigationMapScreen event={event} onBack={goBack} />;
       case 'organizerProfile':
         return event
           ? <OrganizerProfileScreen profile={eventOrganizerProfile(data, event)} onBack={goBack} />

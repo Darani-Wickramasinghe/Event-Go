@@ -13,7 +13,7 @@ const dayFormat = new Intl.DateTimeFormat('en-LK', { weekday: 'long', month: 'lo
 const timeFormat = new Intl.DateTimeFormat('en-LK', { hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'Asia/Colombo' });
 
 export default function EventDetailsScreen({ event, saved, onSave, onBack, remaining, unavailable, booking, attendeeCount, onBook, onReport,
-  organizerProfile, onOpenOrganizer }) {
+  organizerProfile, onOpenOrganizer, onNavigate }) {
   const [message, setMessage] = useState('');
   const [expanded, setExpanded] = useState(false);
   const destination = encodeURIComponent(`${event.venue}, ${event.city}, Sri Lanka`);
@@ -69,6 +69,17 @@ export default function EventDetailsScreen({ event, saved, onSave, onBack, remai
                 <Ionicons name="navigate-outline" size={21} color={colors.purpleDark} />
               </Pressable>
             </KeyDetail>
+            {Number.isFinite(event.latitude) && Number.isFinite(event.longitude) && (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Navigate to venue"
+                onPress={onNavigate}
+                style={styles.navigateButton}
+              >
+                <Ionicons name="map-outline" size={18} color={colors.white} />
+                <Text style={styles.navigateText}>Navigate to Venue</Text>
+              </Pressable>
+            )}
           </View>
           <View style={styles.section}>
             <Text accessibilityRole="header" style={styles.subtitle}>About this event</Text>
@@ -162,6 +173,12 @@ const styles = StyleSheet.create({
   keyDetail: { flexDirection: 'row', alignItems: 'center', gap: 11 },
   factIcon: { width: 38, height: 38, borderRadius: 19, backgroundColor: colors.lavender, alignItems: 'center', justifyContent: 'center' },
   directions: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
+  navigateButton: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7,
+    paddingHorizontal: 16, paddingVertical: 10, borderRadius: 10,
+    backgroundColor: '#4285F4', alignSelf: 'flex-start',
+  },
+  navigateText: { color: '#FFFFFF', fontSize: 13, fontWeight: '700' },
   fact: { flexDirection: 'row', alignItems: 'center', gap: 7 },
   factText: { flexShrink: 1, color: colors.muted, fontSize: 14, lineHeight: 20 },
   link: { minHeight: 44, alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 6 },
