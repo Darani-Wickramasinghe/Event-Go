@@ -4,21 +4,43 @@ export const organizerAlertTypes = [
   { key: 'checkIn', label: 'Attendee check-ins', title: 'Attendee checked in', icon: 'checkmark-circle-outline' },
 ];
 
-export function recordOrganizerActivity(data, event, type, id, detail) {
-  const activity = data.organizerActivity ?? [];
-  if (!data.createdEvents.some((item) => item.id === event.id) || activity.some((item) => item.id === id)) return activity;
-  return [{ id, type, eventId: event.id, detail, createdAt: Date.now() }, ...activity];
+function activityTime(value) {
+  return typeof value === 'number' ? value : Date.parse(value);
 }
 
 export function organizerInbox(data, events, preferences) {
   if (preferences.muted) return [];
   const eventById = new Map(events.map((event) => [event.id, event]));
   const readIds = new Set(preferences.readIds);
-  return (data.organizerActivity ?? []).flatMap((activity) => {
+  const activities = new Map((data.organizerActivity ?? []).map((activity) => [activity.id, activity]));
+
+  for (const booking of data.bookings ?? []) {
+    if (!eventById.has(booking.eventId) || !['Confirmed', 'Cancelled'].includes(booking.status)) continue;
+    const tickets = booking.tickets ?? [];
+    const detail = `${tickets[0]?.name || 'Attendee'} · ${tickets.length} ${tickets.length === 1 ? 'place' : 'places'}`;
+    function addActivity(id, type, description, timestamp) {
+      const createdAt = activityTime(timestamp);
+      if (Number.isFinite(createdAt)) {
+        activities.set(id, { id, type, eventId: booking.eventId, detail: description, createdAt });
+      }
+    }
+
+    addActivity(`reserved-${booking.id}`, 'reservation', detail, booking.createdAt);
+    if (booking.status === 'Cancelled') {
+      addActivity(`cancelled-${booking.id}`, 'cancellation', detail, booking.cancelledAt);
+    }
+    tickets.forEach((ticket, index) => {
+      if (ticket.checkedInAt) {
+        addActivity(`check-in-${booking.id}-${index}`, 'checkIn', ticket.name || 'Attendee', ticket.checkedInAt);
+      }
+    });
+  }
+
+  return [...activities.values()].flatMap((activity) => {
     const event = eventById.get(activity.eventId);
     if (!event || preferences[activity.type] === false) return [];
     return [{ ...activity, event, read: readIds.has(activity.id) }];
-  });
+  }).sort((first, second) => second.createdAt - first.createdAt);
 }
 
 export function organizerPreferences(data) {

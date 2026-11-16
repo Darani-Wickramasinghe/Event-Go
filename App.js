@@ -82,7 +82,8 @@ function Eventora({ fontsReady }) {
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState('All');
   const [filters, setFilters] = useState(defaultFilters);
-  const { data, ready, update, commit, storageWarning, events, reserve, cancel, saveEvent, setEventStatus, checkIn } = useEventoraData();
+  const [firebaseUserId, setFirebaseUserId] = useState(null);
+  const { data, ready, update, commit, storageWarning, events, reserve, cancel, saveEvent, setEventStatus, checkIn } = useEventoraData(firebaseUserId);
   const page = pages.at(-1);
   const organizerWorkspace = role === 'organizer' && !page;
   const event = events.find((item) => item.id === page?.eventId);
@@ -136,9 +137,11 @@ function Eventora({ fontsReady }) {
   useEffect(() => {
     if (!ready || !isFirebaseConfigured || !auth) return;
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      setFirebaseUserId(firebaseUser?.uid ?? null);
       if (firebaseUser) {
         try {
           const cloudProfile = await fetchUserProfile(firebaseUser.uid);
+          if (auth.currentUser?.uid !== firebaseUser.uid) return;
           if (cloudProfile) {
             update((current) => ({
               ...current,
@@ -305,14 +308,14 @@ function Eventora({ fontsReady }) {
                 update((current) => ({
                   ...current,
                   signedIn: true,
-                  profile: { ...current.profile, ...result.profile },
+                  profile: { ...current.profile, ...result.profile, uid: result.user.uid },
                 }));
               } else {
                 const result = await loginWithFirebase({ email, password });
                 update((current) => ({
                   ...current,
                   signedIn: true,
-                  profile: { ...current.profile, ...result.profile },
+                  profile: { ...current.profile, ...result.profile, uid: result.user.uid },
                 }));
                 if (result.profile.role) {
                   setRole(result.profile.role);
@@ -336,7 +339,12 @@ function Eventora({ fontsReady }) {
       case 'reservation':
         return <ReservationScreen key={page.requestId} event={event} events={events} bookings={bookings}
           remaining={remainingPlaces(event, data.bookings)} profile={data.profile} onBack={goBack}
-          onConfirm={(names) => replace('ticket', { bookingId: reserve(event.id, names, page.requestId), confirmed: true })} />;
+          onConfirm={async (names) => {
+            const bookingId = await reserve(event.id, names, page.requestId);
+            setPages((current) => current.at(-1)?.requestId === page.requestId
+              ? [...current.slice(0, -1), { name: 'ticket', bookingId, confirmed: true }]
+              : current);
+          }} />;
       case 'ticket': {
         const booking = bookings.find((item) => item.id === page.bookingId);
         const bookedEvent = events.find((item) => item.id === booking?.eventId);
