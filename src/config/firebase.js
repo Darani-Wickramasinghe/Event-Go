@@ -1,0 +1,43 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { getApp, getApps, initializeApp } from "firebase/app";
+import { getAuth, getReactNativePersistence, initializeAuth } from "firebase/auth";
+import { getFirestore } from "firebase/firestore";
+import { Platform } from "react-native";
+
+// Values come from the .env file (see .env.example). Each teammate has their own .env.
+const firebaseConfig = {
+  apiKey: process.env.EXPO_PUBLIC_FIREBASE_API_KEY,
+  authDomain: process.env.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN,
+  projectId: process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID,
+  appId: process.env.EXPO_PUBLIC_FIREBASE_APP_ID,
+  storageBucket: process.env.EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: process.env.EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+};
+
+const required = ["apiKey", "authDomain", "projectId", "appId"];
+const missing = required.filter((key) => !firebaseConfig[key]);
+
+// If .env is missing, the app still runs (demo mode) instead of crashing.
+export const isFirebaseConfigured = missing.length === 0;
+
+if (!isFirebaseConfigured) {
+  console.warn(`[Firebase] Not configured. Missing: ${missing.join(", ")}. Check your .env file.`);
+}
+
+let app = null;
+let auth = null;
+let db = null;
+
+if (isFirebaseConfigured) {
+  const firstTime = getApps().length === 0;
+  app = firstTime ? initializeApp(firebaseConfig) : getApp();
+
+  // Keep the user signed in after the app closes (phone). The browser handles this itself.
+  auth = firstTime && Platform.OS !== "web"
+    ? initializeAuth(app, { persistence: getReactNativePersistence(AsyncStorage) })
+    : getAuth(app);
+
+  db = getFirestore(app);
+}
+
+export { app, auth, db };
