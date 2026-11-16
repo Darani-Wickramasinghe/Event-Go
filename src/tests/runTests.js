@@ -2,7 +2,7 @@ globalThis.require = (path) => ({ uri: path });
 
 async function main() {
   const { runAllTests } = await import('./businessLogic.test.js');
-  runAllTests();
+  await runAllTests();
 }
 
 main().catch((err) => {

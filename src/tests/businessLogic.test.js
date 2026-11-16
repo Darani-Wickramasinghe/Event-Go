@@ -2,11 +2,17 @@
  * Member 3: Authentication and Core Business Logic Unit Tests
  */
 
-import { registerUser, loginUser, logoutUser, isAttendee, isOrganizer, canManageEvent } from '../services/authService.js';
+import { accountFormDefaults, registerUser, loginUser, logoutUser, isAttendee, isOrganizer, canManageEvent } from '../services/authService.js';
 import { createOrganizerEvent, updateOrganizerEvent, transitionEventStatus } from '../services/eventBusinessService.js';
 import { registerForFreeEvent, cancelRegistration, bookingLimit } from '../services/registrationService.js';
 import { validateAndCheckInTicket, getTicketStatusInfo } from '../services/ticketService.js';
 import { calculatePaidPreview, attemptPaidCheckout } from '../services/paidPreviewService.js';
+import { calculateAttendanceStats, filterAttendees, getEventAttendees, getOrganizerEvents } from '../data/attendance.js';
+import { organizerInbox, organizerPreferences, recordOrganizerActivity, updateOrganizerPreferences } from '../data/organizerNotifications.js';
+import { editableOrganizerProfile, eventOrganizerProfile, saveOrganizerProfile } from '../data/organizerProfiles.js';
+import { buildOrganizerOverview } from '../data/organizerOverview.js';
+import { organizerEventResults } from '../data/organizerEvents.js';
+import { persistStoreChange } from '../data/persistStoreChange.js';
 
 let testsPassed = 0;
 let testsFailed = 0;
@@ -35,7 +41,37 @@ function assertThrows(fn, expectedMessageSubstring, message) {
   }
 }
 
-export function runAllTests() {
+export async function runAllTests() {
+  const before = { name: 'Original', count: 0 };
+  let current = before;
+  const read = () => current;
+  const apply = (value) => { current = value; };
+  const change = (value) => ({ ...value, count: value.count + 1 });
+  try {
+    await persistStoreChange(read, async () => { throw new Error('Write failed'); }, apply, change);
+    assert(false, 'Failed writes should reject');
+  } catch (error) {
+    assert(error.message === 'Write failed' && current === before, 'Failed writes should leave the active state unchanged');
+  }
+  const writes = [];
+  await persistStoreChange(read, async (value) => {
+    writes.push(value);
+    if (writes.length === 1) current = { ...current, name: 'Changed concurrently' };
+  }, apply, change);
+  assert(writes.length === 2 && current.name === 'Changed concurrently' && current.count === 1,
+    'Confirmed writes should preserve an intervening update and apply the mutation once');
+  const attendance = getEventAttendees([
+    { id: 'one', eventId: 'event', status: 'Confirmed', attendeeEmail: 'host@example.test',
+      tickets: [{ name: 'Alex', code: 'first', checkedInAt: 1 }, { name: 'Taylor', code: 'second' }] },
+    { id: 'two', eventId: 'event', status: 'Cancelled', tickets: [{ name: 'Sam', code: 'third', checkedInAt: 1 }] },
+    { id: 'three', eventId: 'another', status: 'Confirmed', tickets: [{ name: 'Morgan', code: 'fourth' }] },
+  ], 'event');
+  const attendanceStats = calculateAttendanceStats(attendance);
+  assert(attendanceStats.totalRegistered === 2 && attendanceStats.checkedIn === 1 && attendanceStats.percentage === 50,
+    'Attendance uses confirmed tickets and excludes cancelled and wrong-event tickets');
+  assert(filterAttendees(attendance, ' HOST@EXAMPLE.TEST ', 'Not checked in')[0]?.name === 'Taylor' &&
+    filterAttendees(attendance, 'third', 'All').length === 0 &&
+    filterAttendees(attendance, 'third', 'Cancelled').length === 1, 'Attendance search combines booking email, ticket code and status');
   console.log('==================================================');
   console.log('EVENTORA - MEMBER 3 BUSINESS LOGIC TEST SUITE');
   console.log('==================================================\n');
@@ -101,6 +137,12 @@ export function runAllTests() {
   // Test login
   const loginResult = loginUser({ email: 'kasun@example.com' }, attendeeReg);
   assert(loginResult.signedIn === true, 'Login sets signedIn state to true');
+  const anotherProfile = registerUser(
+    { name: 'New attendee', email: 'new@example.com', city: 'Kelaniya', role: 'attendee' },
+    organizerReg
+  );
+  assert(loginUser({ email: organizerReg.profile.email, role: 'organizer' }, anotherProfile).profile.name === organizerReg.profile.name,
+    'Organizer can return to the same account after an attendee signs up');
 
   assertThrows(
     () => loginUser({ email: 'wrong@example.com' }, attendeeReg),
@@ -111,6 +153,19 @@ export function runAllTests() {
   // Test logout
   const logoutResult = logoutUser(loginResult);
   assert(logoutResult.signedIn === false, 'Logout sets signedIn state to false');
+  const previousAttendee = { ...logoutResult.profile, interests: ['IT'], bio: 'Attendee bio', reminders: true, organization: 'Old details' };
+  assert(Object.values(accountFormDefaults(previousAttendee, 'organizer', true)).every((value) => value === ''),
+    'Organizer sign-up should not be prefilled with a signed-out attendee profile');
+  assert(accountFormDefaults(previousAttendee, 'organizer', false).email === '' &&
+    accountFormDefaults(previousAttendee, 'attendee', false).email === previousAttendee.email,
+    'Only the matching role can prefill the last login email');
+  const separateOrganizer = registerUser(
+    { name: 'New organizer', email: 'new-organizer@example.com', city: 'Colombo', role: 'organizer', organization: 'New organization' },
+    { ...logoutResult, profile: previousAttendee }
+  );
+  assert(!separateOrganizer.profile.interests.length && !separateOrganizer.profile.reminders && !separateOrganizer.profile.bio &&
+    separateOrganizer.profiles[previousAttendee.email].bio === 'Attendee bio',
+    'New accounts start with independent preferences while prior account details are retained');
 
   // Test role checks
   assert(isAttendee('attendee') === true, 'Role check correctly identifies attendee');
@@ -159,6 +214,108 @@ export function runAllTests() {
   const publishedDraft = { ...validDraft, publish: true };
   const publishedEvent = createOrganizerEvent(organizerReg.profile, 'organizer', publishedDraft);
   assert(publishedEvent.status === 'Published', 'Publish flag sets event status to Published');
+  assert(publishedEvent.organizerEmail === organizerReg.profile.email, 'Event stores the creator email');
+
+  const anotherOrganizer = { ...organizerReg.profile, email: 'other@events.lk' };
+  const anotherEvent = createOrganizerEvent(anotherOrganizer, 'organizer', publishedDraft);
+  const legacyEvent = { organizer: ' lanka events ' };
+  const similarOrganization = { organizer: 'Lanka Events Collective' };
+  const ownEvents = getOrganizerEvents(
+    [publishedEvent, anotherEvent, legacyEvent, similarOrganization, {}],
+    organizerReg.profile
+  );
+  assert(ownEvents.length === 2 && ownEvents.includes(publishedEvent) && ownEvents.includes(legacyEvent),
+    'Organizer list includes owned and matching legacy events and excludes other events');
+  assert(!canManageEvent(anotherOrganizer, 'organizer', publishedEvent),
+    'Organizers cannot manage events owned by another account in the same organization');
+
+  const firstEvent = { ...publishedEvent, id: 'my-event' };
+  const secondEvent = { ...anotherEvent, id: 'other-event' };
+  const publicDraft = {
+    ...editableOrganizerProfile(organizerReg),
+    name: 'Ama Silva',
+    organization: 'Lanka Event Studio',
+    email: 'hello@studio.example',
+    phone: '+94 77 123 4567',
+    description: 'Community events in Kelaniya.',
+    picture: 'data:image/jpeg;base64,example',
+  };
+  const updatedProfileState = saveOrganizerProfile(organizerReg, publicDraft);
+  const attendeeState = { ...updatedProfileState, profile: attendeeReg.profile };
+  assert(eventOrganizerProfile(attendeeState, firstEvent).email === publicDraft.email,
+    'Attendees see the organizer’s saved contact email');
+  assert(eventOrganizerProfile(attendeeState, firstEvent).picture === publicDraft.picture
+    && eventOrganizerProfile(attendeeState, firstEvent).phone === publicDraft.phone,
+    'The organizer picture and contact number are visible to attendees');
+  assert(updatedProfileState.profile.email === organizerReg.profile.email
+    && canManageEvent(updatedProfileState.profile, 'organizer', firstEvent),
+    'Editing contact details preserves the account email and event ownership');
+  assert(!eventOrganizerProfile(attendeeState, secondEvent).email
+    && !eventOrganizerProfile(attendeeState, { organizer: firstEvent.organizer }).email,
+    'Contact details cannot be resolved from another account or a matching display name');
+  assertThrows(() => saveOrganizerProfile(attendeeState, publicDraft), 'Sign in as an organizer',
+    'Attendee cannot edit organizer contact details');
+
+  let activityStore = { ...organizerReg, createdEvents: [firstEvent, secondEvent] };
+  for (const [event, type, id] of [
+    [firstEvent, 'reservation', 'reserved-one'],
+    [firstEvent, 'reservation', 'reserved-one'],
+    [firstEvent, 'cancellation', 'cancelled-one'],
+    [firstEvent, 'checkIn', 'check-in-two'],
+    [secondEvent, 'reservation', 'reserved-other'],
+  ]) {
+    activityStore.organizerActivity = recordOrganizerActivity(activityStore, event, type, id, 'Attendee');
+  }
+  const owned = getOrganizerEvents(activityStore.createdEvents, organizerReg.profile);
+  const inbox = () => organizerInbox(activityStore, owned, organizerPreferences(activityStore));
+  assert(inbox().map(({ id }) => id).join(',') === 'check-in-two,cancelled-one,reserved-one',
+    'Organizer inbox includes their own activity, newest first and without duplicates');
+  activityStore = updateOrganizerPreferences(activityStore, (preferences) => ({
+    ...preferences, cancellation: false, readIds: ['reserved-one'],
+  }));
+  assert(inbox().length === 2 && inbox()[1].read, 'Alert types and read state are controlled independently');
+  activityStore = updateOrganizerPreferences(activityStore, (preferences) => ({ ...preferences, muted: true }));
+  assert(inbox().length === 0, 'Muting hides alerts and unread counts');
+  const otherState = { ...activityStore, profile: anotherOrganizer };
+  assert(!organizerPreferences(otherState).muted, 'Organizer preferences do not carry over to another account');
+  activityStore = updateOrganizerPreferences(activityStore, (preferences) => ({ ...preferences, muted: false }));
+  assert(inbox().length === 2 && inbox()[1].read, 'Unmuting restores filtered history and read state');
+
+  const dashboardNow = Date.parse('2026-11-25T11:30:00+05:30');
+  const scheduled = [
+    { id: 'later', status: 'Rescheduled', startDate: '2026-11-26', startTime: '09:00', endTime: '12:00', capacity: null },
+    { id: 'running', status: 'Published', startDate: '2026-11-25', startTime: '11:00', endTime: '12:00', capacity: 5 },
+    { id: 'next', status: 'Closed', startDate: '2026-11-25', startTime: '14:00', endTime: '16:00', capacity: 2 },
+    { id: 'draft', status: 'Draft', startDate: '2026-11-24', startTime: '09:00', endTime: '12:00' },
+    { id: 'ended', status: 'Published', startDate: '2026-11-24', startTime: '09:00', endTime: '12:00' },
+    { id: 'cancelled', status: 'Cancelled', startDate: '2026-11-26', startTime: '09:00', endTime: '12:00' },
+  ];
+  const overview = buildOrganizerOverview(scheduled, [
+    { eventId: 'next', status: 'Confirmed', tickets: [{}, {}] },
+    { eventId: 'ended', status: 'Confirmed', tickets: [{ checkedInAt: dashboardNow - 86400000 }, {}] },
+    { eventId: 'next', status: 'Cancelled', tickets: [{}] },
+    { eventId: 'other-organizer', status: 'Confirmed', tickets: [{ checkedInAt: dashboardNow }] },
+  ], dashboardNow);
+  assert(overview.upcoming.map(({ id }) => id).join(',') === 'next,later',
+    'Dashboard schedule is ordered by future start time and excludes ongoing, draft, cancelled and ended events');
+  assert(overview.totals.published === 3 && overview.totals.drafts === 1,
+    'Dashboard distinguishes current public listings from drafts and finished events');
+  assert(overview.totals.registrations === 2 && overview.totals.checkedIn === 1
+    && overview.counts.get('next').registrations === 1 && overview.counts.get('next').places === 2,
+    'Dashboard counts confirmed bookings and checked-in tickets separately, excluding other organizers');
+  assert(overview.nearCapacity.length === 1 && overview.nearCapacity[0].id === 'next' && overview.expiredDrafts === 1,
+    'Dashboard attention uses reserved places against capacity and expired draft schedules');
+
+  const listings = scheduled.map((event) => ({ ...event, title: event.id === 'next' ? 'Technology Workshop' : event.id }));
+  const results = (filter, query = '', sort = 'Upcoming first') =>
+    organizerEventResults(listings, { filter, query, sort }, dashboardNow).map(({ id }) => id);
+  assert(results('Published').join(',') === 'next,later,running,ended' && results('Completed').join(',') === 'ended',
+    'Published and completed filters distinguish publication from schedule and can overlap');
+  assert(results('Published', '  WORKSHOP  ').join(',') === 'next' && results('Drafts', 'workshop').length === 0,
+    'Listing matches event titles without case or surrounding spaces and combines search with the status filter');
+  assert(results('Published', '', 'Event name').join(',') === 'ended,later,running,next'
+    && results('Cancelled').join(',') === 'cancelled' && results('Archived').length === 0,
+    'Listing supports alphabetical sorting and excludes unrelated lifecycle states');
 
   // Test organizer editing another organizer's event rejected
   const mockOtherOrgEvent = { id: 'evt-1', title: 'Other Event', organizer: 'Diff Org', status: 'Published' };
@@ -324,6 +481,21 @@ export function runAllTests() {
   };
 
   const organizerScanner = { signedIn: true, role: 'organizer' };
+  const scanTime = Date.parse('2026-11-25T14:15:00+05:30');
+
+  for (const [event, booking, code, expected] of [
+    [sampleEvent, activeBooking, 'unknown QR', 'not found'],
+    [sampleEvent, activeBooking, '   ', 'Invalid ticket code'],
+    [sampleEvent, { ...activeBooking, status: 'Cancelled' }, 'TICK-100-A', 'cancelled'],
+    [{ ...sampleEvent, status: 'Archived' }, activeBooking, 'TICK-100-A', 'Check-in is unavailable'],
+  ]) {
+    assertThrows(
+      () => validateAndCheckInTicket(organizerScanner, event, code, [booking], scanTime),
+      expected,
+      'Invalid scans are rejected before check-in'
+    );
+    assert(booking.tickets.every((ticket) => ticket.checkedInAt === null), 'Rejected scan leaves attendance unchanged');
+  }
 
   // Test valid ticket scan
   const scan1 = validateAndCheckInTicket(
@@ -331,13 +503,14 @@ export function runAllTests() {
     sampleEvent,
     'TICK-100-A',
     [activeBooking],
-    Date.parse('2026-11-25T14:15:00+05:30')
+    scanTime
   );
 
   assert(scan1.success === true, 'Ticket check-in succeeds');
   assert(scan1.attendeeName === 'Kasun Perera', 'Ticket scan identifies attendee name');
   const checkedInTicket = scan1.booking.tickets.find((t) => t.code === 'TICK-100-A');
   assert(checkedInTicket.checkedInAt !== null, 'Ticket record records checked-in timestamp');
+  assert(scan1.booking.tickets[1].checkedInAt === null, 'A valid QR only checks in the scanned ticket');
 
   // Test repeat scan returns already used
   const updatedBookings = [scan1.booking];

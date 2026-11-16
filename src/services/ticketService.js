@@ -20,14 +20,15 @@ export function validateAndCheckInTicket({ signedIn, role }, event, ticketCode, 
     throw new Error('Event not found.');
   }
 
-  if (!ticketCode || typeof ticketCode !== 'string') {
+  const code = typeof ticketCode === 'string' ? ticketCode.trim() : '';
+  if (!code) {
     throw new Error('Invalid ticket code.');
   }
 
   // Delegate core ticket scanning verification to Member 2's scanTicket helper
-  const updatedBooking = scanTicket(event, existingBookings, ticketCode.trim(), now);
+  const updatedBooking = scanTicket(event, existingBookings, code, now);
 
-  const scannedTicket = updatedBooking.tickets.find((t) => t.code === ticketCode.trim());
+  const scannedTicket = updatedBooking.tickets.find((t) => t.code === code);
 
   return {
     success: true,

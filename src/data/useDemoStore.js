@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useEffect, useRef, useState } from 'react';
 import { sriLankaDate } from './reservations';
+import { persistStoreChange } from './persistStoreChange';
 
 const storageKey = 'eventora-demo-v1';
 
@@ -8,11 +9,15 @@ const initialState = {
   signedIn: false,
   demoDate: sriLankaDate(),
   profile: { name: '', interests: [], city: 'Kelaniya', reminders: false, reminderHours: 24 },
+  profiles: {},
+  organizerProfiles: {},
   savedIds: [],
   bookings: [],
   eventEdits: {},
   createdEvents: [],
   notifications: [],
+  organizerActivity: [],
+  organizerNotificationSettings: {},
   readReminders: [],
   reports: [],
   audit: [],
@@ -40,16 +45,38 @@ export function useDemoStore() {
     return () => { active = false; };
   }, []);
 
-  function update(change) {
-    const next = change(current.current);
+  function apply(next) {
     current.current = next;
     setData(next);
+  }
+
+  function write(next) {
+    return AsyncStorage.setItem(storageKey, JSON.stringify(next));
+  }
+
+  function update(change) {
+    const next = change(current.current);
+    apply(next);
     pendingWrite.current = pendingWrite.current
-      .then(() => AsyncStorage.setItem(storageKey, JSON.stringify(next)))
+      .then(() => write(current.current))
       .then(() => setStorageWarning(''))
       .catch(() => setStorageWarning('Changes could not be saved on this device.'));
     return next;
   }
 
-  return { data, ready, update, storageWarning };
+  function commit(change) {
+    const completed = pendingWrite.current.then(() =>
+      persistStoreChange(() => current.current, async (next) => {
+        try {
+          await write(next);
+        } catch {
+          throw new Error('Changes could not be saved on this device. Try again.');
+        }
+      }, apply, change)
+    );
+    pendingWrite.current = completed.then(() => setStorageWarning(''), () => {});
+    return completed;
+  }
+
+  return { data, ready, update, commit, storageWarning };
 }

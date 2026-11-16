@@ -2,14 +2,16 @@ import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import EventoraLogo from '../components/EventoraLogo';
 import { Action, Copy, Field, Page } from '../components/FlowUI';
+import { accountFormDefaults } from '../services/authService';
 
 export default function AccountScreen({ signUp, role, profile, onContinue, onSwitch, onBack }) {
-  const [name, setName] = useState(profile?.name || '');
-  const [email, setEmail] = useState(profile?.email ?? '');
+  const [initial] = useState(() => accountFormDefaults(profile, role, signUp));
+  const [name, setName] = useState(initial.name);
+  const [email, setEmail] = useState(initial.email);
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [city, setCity] = useState(profile?.name ? profile.city : '');
-  const [organization, setOrganization] = useState(profile?.organization ?? '');
+  const [city, setCity] = useState(initial.city);
+  const [organization, setOrganization] = useState(initial.organization);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const title = signUp ? 'Sign up' : 'Log in';
@@ -59,7 +61,7 @@ export default function AccountScreen({ signUp, role, profile, onContinue, onSwi
           value={name}
           onChangeText={setName}
           autoCapitalize="words"
-          autoComplete="name"
+          autoComplete={signUp ? 'off' : 'name'}
           maxLength={70}
           editable={!loading}
         />
@@ -72,7 +74,7 @@ export default function AccountScreen({ signUp, role, profile, onContinue, onSwi
         autoCapitalize="none"
         autoCorrect={false}
         keyboardType="email-address"
-        autoComplete="email"
+        autoComplete={signUp ? 'off' : 'email'}
         placeholder="name@example.com"
         maxLength={120}
         editable={!loading}

@@ -50,6 +50,7 @@ export function createOrganizerEvent(userProfile, role, draftData, existingBooki
   return {
     ...validatedDetails,
     organizer: organizerName,
+    organizerEmail: userProfile.email?.trim().toLowerCase() || '',
     status: isPublish ? 'Published' : 'Draft',
   };
 }
@@ -98,6 +99,9 @@ export function updateOrganizerEvent(userProfile, role, existingEvent, draftData
     status: nextStatus,
     reason: reasonText,
     rescheduled: isPublicEvent && moved ? true : existingEvent.rescheduled,
+    ...(role === 'organizer' && !existingEvent.organizerEmail && userProfile.email
+      ? { organizerEmail: userProfile.email.trim().toLowerCase() }
+      : {}),
   };
 }
 

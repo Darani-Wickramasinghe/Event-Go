@@ -3,7 +3,7 @@
  * Handles free-event registration, capacity calculation, concurrency retries, duplicate prevention, and cancellations.
  */
 
-import { bookingLimit, remainingPlaces, registrationStatus, makeReservation, cancellationReason } from '../data/reservations.js';
+import { bookingLimit, remainingPlaces, registrationStatus, makeReservation, cancellationReason, ownsReservation } from '../data/reservations.js';
 
 export { bookingLimit };
 
@@ -19,6 +19,7 @@ export function registerForFreeEvent({ userProfile, signedIn }, event, attendeeN
   // Handle idempotency / safe retry: if booking with requestId already exists, return it without creating duplicate
   const existingBooking = existingBookings.find((b) => b.id === requestId);
   if (existingBooking) {
+    if (!ownsReservation(existingBooking, userProfile)) throw new Error('Start a new reservation and try again.');
     return { booking: existingBooking, isDuplicateRequest: true };
   }
 
@@ -29,7 +30,7 @@ export function registerForFreeEvent({ userProfile, signedIn }, event, attendeeN
 
   // Check duplicate booking policy: an attendee cannot have multiple active confirmed reservations for the same event
   const alreadyBooked = existingBookings.some(
-    (b) => b.eventId === event.id && b.status === 'Confirmed'
+    (b) => b.eventId === event.id && b.status === 'Confirmed' && ownsReservation(b, userProfile)
   );
   if (alreadyBooked) {
     throw new Error('You already have a reservation for this event.');
@@ -57,7 +58,7 @@ export function registerForFreeEvent({ userProfile, signedIn }, event, attendeeN
   }
 
   // Create registration using Member 2's makeReservation helper
-  const newBooking = makeReservation(event, existingBookings, attendeeNames, requestId, randomCodes, now);
+  const newBooking = makeReservation(event, existingBookings, attendeeNames, requestId, randomCodes, now, userProfile);
 
   return {
     booking: newBooking,
@@ -81,8 +82,7 @@ export function cancelRegistration({ userProfile, signedIn, role }, bookingId, e
   }
 
   // Authorization check: User must own the booking or be admin
-  const isOwner = true; // In current demo client, user owns stored bookings; for server logic, compare user identity
-  if (!isOwner && role !== 'admin') {
+  if (!ownsReservation(booking, userProfile) && role !== 'admin') {
     throw new Error('You do not have permission to cancel this reservation.');
   }
 

@@ -3,39 +3,14 @@
  * Reuses existing Eventora events and bookings data.
  */
 
+import { canManageEvent, ROLES } from '../services/authService.js';
+
 /**
  * Checks whether an event belongs to the logged-in organizer.
  * An organizer can only access their own events.
  */
 export function isOrganizerEvent(event, profile = {}) {
-  if (!event) return false;
-
-  const org = (profile.organization || '').trim().toLowerCase();
-  const name = (profile.name || '').trim().toLowerCase();
-  const email = (profile.email || '').trim().toLowerCase();
-
-  const eventOrg = (event.organizer || '').trim().toLowerCase();
-  const eventEmail = (event.organizerEmail || '').trim().toLowerCase();
-
-  // Match by organizer email if present
-  if (email && eventEmail && email === eventEmail) return true;
-
-  // Match by organization name if set
-  if (org && eventOrg) {
-    if (eventOrg === org || eventOrg.includes(org) || org.includes(eventOrg)) {
-      return true;
-    }
-  }
-
-  // Match by organizer display name
-  if (name && eventOrg && eventOrg === name) return true;
-
-  // Fallback for default demo organizer when no specific organization is set
-  if (!org && !name) {
-    return eventOrg === 'colombo live' || eventOrg === 'eventora demo organizer';
-  }
-
-  return false;
+  return !!event && canManageEvent(profile, ROLES.ORGANIZER, event);
 }
 
 /**
@@ -77,6 +52,8 @@ export function getEventAttendees(bookings = [], eventId) {
         checkedInAt: ticket.checkedInAt || null,
         status, // 'Checked in' | 'Not checked in' | 'Cancelled'
         isCancelled,
+        isConfirmed: booking.status === 'Confirmed',
+        bookingEmail: booking.attendeeEmail,
         createdAt: booking.createdAt,
       });
     }
@@ -87,14 +64,14 @@ export function getEventAttendees(bookings = [], eventId) {
 
 /**
  * Computes attendance metrics for a list of attendees:
- * - totalRegistered: total confirmed reservations
+ * - totalRegistered: total confirmed tickets
  * - checkedIn: attendees who have checked in
  * - notCheckedIn: attendees who have not yet checked in
  * - percentage: attendance rate as a percentage (0-100)
  */
 export function calculateAttendanceStats(attendees = []) {
   // Only confirmed (non-cancelled) attendees count toward attendance
-  const confirmedAttendees = attendees.filter((a) => !a.isCancelled);
+  const confirmedAttendees = attendees.filter((a) => a.isConfirmed ?? !a.isCancelled);
   const totalRegistered = confirmedAttendees.length;
   const checkedIn = confirmedAttendees.filter((a) => a.status === 'Checked in').length;
   const notCheckedIn = Math.max(0, totalRegistered - checkedIn);
@@ -120,13 +97,11 @@ export function filterAttendees(attendees = [], query = '', statusFilter = 'All'
     if (statusFilter === 'Not checked in' && attendee.status !== 'Not checked in') return false;
     if (statusFilter === 'Cancelled' && attendee.status !== 'Cancelled') return false;
     // By default in 'All', only show active confirmed attendees
-    if (statusFilter === 'All' && attendee.isCancelled) return false;
+    if (statusFilter !== 'Cancelled' && !(attendee.isConfirmed ?? !attendee.isCancelled)) return false;
 
     // Search query
     if (q) {
-      const matchesName = attendee.name.toLowerCase().includes(q);
-      const matchesCode = (attendee.code || '').toLowerCase().includes(q);
-      if (!matchesName && !matchesCode) return false;
+      if (![attendee.name, attendee.code, attendee.bookingEmail].some((value) => value?.toLowerCase().includes(q))) return false;
     }
 
     return true;

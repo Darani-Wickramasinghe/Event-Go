@@ -74,6 +74,25 @@ export function mapFirebaseAuthError(error) {
   }
 }
 
+function savedProfiles(store) {
+  const email = store.profile?.email?.trim().toLowerCase();
+  return email ? { ...store.profiles, [email]: store.profile } : store.profiles ?? {};
+}
+
+function isUnfinishedProfileForRole(profile, role) {
+  return !!profile?.name && !profile.email && (profile.role === role || (!profile.role && role === ROLES.ATTENDEE));
+}
+
+export function accountFormDefaults(profile, role, signUp) {
+  const unfinished = signUp && isUnfinishedProfileForRole(profile, role) ? profile : null;
+  return {
+    name: unfinished?.name ?? '',
+    email: !signUp && profile?.role === role ? profile.email ?? '' : '',
+    city: unfinished?.city ?? '',
+    organization: role === ROLES.ORGANIZER ? unfinished?.organization ?? '' : '',
+  };
+}
+
 /**
  * Synchronous local registration (for in-memory / demo / unit tests)
  */
@@ -87,43 +106,55 @@ export function registerUser(formData, currentStore) {
     throw new Error('An account with this email is already signed in on this device.');
   }
 
+  const profiles = savedProfiles(currentStore);
+  if (profiles[formattedEmail]) {
+    throw new Error('An account with this email already exists on this device. Log in to continue.');
+  }
+
+  const unfinished = isUnfinishedProfileForRole(currentStore.profile, role) ? currentStore.profile : null;
   const newProfile = {
-    ...currentStore.profile,
+    reminders: false,
+    reminderHours: 24,
+    ...unfinished,
+    interests: unfinished?.interests ?? [],
     name: name.trim(),
     email: formattedEmail,
     city: city.trim(),
-    organization: role === ROLES.ORGANIZER ? organization.trim() : (currentStore.profile.organization || ''),
-    role: role,
-    interests: currentStore.profile.interests || [],
+    organization: role === ROLES.ORGANIZER ? organization.trim() : '',
+    role,
   };
 
   return {
     signedIn: true,
     profile: newProfile,
+    profiles: { ...profiles, [formattedEmail]: newProfile },
   };
 }
 
 /**
  * Synchronous local login (for in-memory / demo / unit tests)
  */
-export function loginUser({ email }, currentStore) {
+export function loginUser({ email, role }, currentStore) {
   if (!validateEmail(email)) {
     throw new Error('Enter a valid email address.');
   }
 
   const formattedEmail = email.trim().toLowerCase();
-  const existingEmail = currentStore.profile?.email?.toLowerCase();
-
-  if (existingEmail && existingEmail !== formattedEmail) {
+  const profiles = savedProfiles(currentStore);
+  const savedProfile = profiles[formattedEmail];
+  if (!savedProfile && (Object.keys(profiles).length > 0 || !currentStore.profile?.name)) {
     throw new Error('That email does not match a profile on this device.');
   }
+  const profile = savedProfile ?? currentStore.profile;
+  if (role && profile.role && profile.role !== role) {
+    throw new Error(`Choose the ${profile.role} role to use this account.`);
+  }
+  const signedInProfile = { ...profile, email: formattedEmail };
 
   return {
     signedIn: true,
-    profile: {
-      ...currentStore.profile,
-      email: formattedEmail,
-    },
+    profile: signedInProfile,
+    profiles: { ...profiles, [formattedEmail]: signedInProfile },
   };
 }
 
@@ -305,9 +336,12 @@ export function canManageEvent(userProfile, role, event) {
   if (role === ROLES.ADMIN) return true;
   if (role === ROLES.ORGANIZER) {
     if (!event) return true; // Can create new event
+    const eventEmail = event.organizerEmail?.trim().toLowerCase();
+    if (eventEmail) return eventEmail === userProfile.email?.trim().toLowerCase();
+
     const userOrg = (userProfile.organization || userProfile.name || '').trim().toLowerCase();
     const eventOrg = (event.organizer || '').trim().toLowerCase();
-    return userOrg === eventOrg || !eventOrg;
+    return !!eventOrg && userOrg === eventOrg;
   }
   return false;
 }
