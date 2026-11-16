@@ -18,6 +18,7 @@ import DiscoveryScreen from './src/screens/DiscoveryScreen';
 import EventDetailsScreen from './src/screens/EventDetailsScreen';
 import LaunchScreen from './src/screens/LaunchScreen';
 import MapScreen from './src/screens/MapScreen';
+import NavigationMapScreen from './src/screens/NavigationMapScreen';
 import NotificationsScreen from './src/screens/NotificationsScreen';
 import { ReportScreen } from './src/screens/OperationsScreen';
 import { OrganizerScreen } from './src/screens/OrganizerScreen';
@@ -214,7 +215,12 @@ function Eventora({ fontsReady }) {
           saved={data.savedIds.includes(event.id)} onSave={() => toggleSave(event.id)}
           remaining={remainingPlaces(event, data.bookings)} unavailable={registrationStatus(event, data.bookings)}
           attendeeCount={reservedPlaces(event, data.bookings)}
-          booking={booking} onBook={book} onReport={() => open('report', { eventId: event.id })} />;
+          booking={booking} onBook={book} onReport={() => open('report', { eventId: event.id })}
+          onNavigate={() => open('navigate', { eventId: event.id })} />;
+      }
+      case 'navigate': {
+        const navEvent = events.find((item) => item.id === page?.eventId);
+        return <NavigationMapScreen event={navEvent} onBack={goBack} />;
       }
       case 'signIn':
       case 'signUp': {
