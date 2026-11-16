@@ -16,15 +16,10 @@ import { events as seedEvents, formatEventDate } from '../data/events.js';
 
 export const EVENTS_COLLECTION = 'events';
 
-export function sanitizeEventForFirestore(event) {
-  if (!event) return null;
-  const clean = { ...event };
-  delete clean.defaultImage;
-  // Firestore cannot store React Native require() asset numbers
-  if (typeof clean.image === 'number') {
-    delete clean.image;
-  }
-  return clean;
+function withoutBundledImages(event) {
+  // Bundled image sources are resolved by each app build. Custom covers use coverImage.
+  const { image, defaultImage, ...data } = event;
+  return data;
 }
 
 /**
@@ -40,7 +35,7 @@ export async function seedFirestoreEventsIfEmpty() {
 
     let seededCount = 0;
     for (const event of seedEvents) {
-      const sanitized = sanitizeEventForFirestore({
+      const sanitized = withoutBundledImages({
         ...event,
         status: 'Published',
         coverImage: null,
@@ -71,7 +66,7 @@ export function subscribeToCloudEvents(onEventsChanged, onError) {
     (snapshot) => {
       const cloudEvents = [];
       snapshot.forEach((docSnap) => {
-        const data = docSnap.data();
+        const data = withoutBundledImages(docSnap.data());
         cloudEvents.push({
           id: docSnap.id,
           ...data,
@@ -95,7 +90,7 @@ export async function saveEventToFirestore(eventData) {
   if (!isFirebaseConfigured || !db) return;
   if (!eventData || !eventData.id) throw new Error('Event must have a valid ID to save to Firestore.');
 
-  const sanitized = sanitizeEventForFirestore({
+  const sanitized = withoutBundledImages({
     ...eventData,
     updatedAt: new Date().toISOString(),
   });

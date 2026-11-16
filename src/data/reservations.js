@@ -30,7 +30,12 @@ export function registrationStatus(event, bookings, now = Date.now()) {
 }
 
 export function ownsReservation(booking, profile) {
-  return !booking.attendeeEmail || booking.attendeeEmail === profile?.email?.trim().toLowerCase();
+  if (booking.userId && booking.userId !== 'demo-user') {
+    return booking.userId === profile?.uid;
+  }
+
+  const attendeeEmail = booking.attendeeEmail?.trim().toLowerCase();
+  return !!attendeeEmail && attendeeEmail === profile?.email?.trim().toLowerCase();
 }
 
 export function makeReservation(event, bookings, names, id, codes, now = Date.now(), profile) {
@@ -54,6 +59,7 @@ export function makeReservation(event, bookings, names, id, codes, now = Date.no
   }
   return {
     id, eventId: event.id, status: 'Confirmed', createdAt: now,
+    ...(profile?.uid && { userId: profile.uid }),
     ...(profile?.email && { attendeeEmail: profile.email.trim().toLowerCase() }),
     tickets: names.map((name, index) => ({ name: name.trim(), code: codes[index], checkedInAt: null })),
   };
