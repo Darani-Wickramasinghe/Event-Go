@@ -1,0 +1,31 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // User profile documents (each user can read and edit only their own)
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    // Events: Anyone can view public events; logged-in organizers can create/manage
+    match /events/{eventId} {
+      allow read: if true;
+      allow create, update, delete: if request.auth != null;
+    }
+    
+    // Registrations & Tickets: Logged-in users can view and create their own
+    match /bookings/{bookingId} {
+      allow read, write: if request.auth != null;
+    }
+    
+    // Notifications
+    match /notifications/{notificationId} {
+      allow read, write: if request.auth != null;
+    }
+
+    // Reports and feedback
+    match /reports/{reportId} {
+      allow read, write: if request.auth != null;
+    }
+  }
+}

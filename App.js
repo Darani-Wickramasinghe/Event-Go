@@ -11,8 +11,23 @@ import SideMenu from './src/components/SideMenu';
 import { defaultFilters } from './src/data/eventFilters';
 import { eventTime, ownsReservation, registrationStatus, remainingPlaces, reservedPlaces } from './src/data/reservations';
 import { useEventoraData } from './src/data/useEventoraData';
+import { onAuthStateChanged } from 'firebase/auth';
+import { auth, isFirebaseConfigured } from './src/config/firebase';
 import { eventOrganizerProfile } from './src/data/organizerProfiles';
-import { registerUser, loginUser, logoutUser } from './src/services/authService';
+import {
+  registerUser,
+  loginUser,
+  logoutUser,
+  registerWithFirebase,
+  loginWithFirebase,
+  logoutWithFirebase,
+  fetchUserProfile,
+  updateUserProfileInFirestore,
+} from './src/services/authService';
+import {
+  markNotificationReadInFirestore,
+  saveReportToFirestore,
+} from './src/services/notificationFirestoreService';
 import AccountScreen from './src/screens/AccountScreen';
 import CalendarScreen from './src/screens/CalendarScreen';
 import DiscoveryScreen from './src/screens/DiscoveryScreen';
@@ -118,6 +133,38 @@ function Eventora({ fontsReady }) {
     setLinkedEventId(null);
   }, [role, linkedEventId, events, page?.entry]);
 
+  useEffect(() => {
+    if (!ready || !isFirebaseConfigured || !auth) return;
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      if (firebaseUser) {
+        try {
+          const cloudProfile = await fetchUserProfile(firebaseUser.uid);
+          if (cloudProfile) {
+            update((current) => ({
+              ...current,
+              signedIn: true,
+              profile: {
+                ...current.profile,
+                ...cloudProfile,
+                id: firebaseUser.uid,
+                uid: firebaseUser.uid,
+                email: firebaseUser.email || cloudProfile.email,
+              },
+            }));
+            if (cloudProfile.role && !role) {
+              setRole(cloudProfile.role);
+            }
+          }
+        } catch (err) {
+          console.warn('[Firebase] Auth session restoration failed:', err.message);
+        }
+      } else {
+        update((current) => ({ ...current, signedIn: false }));
+      }
+    });
+    return () => unsubscribe();
+  }, [ready]);
+
   function switchRole() {
     setPages([]);
     setMenuOpen(false);
@@ -125,7 +172,14 @@ function Eventora({ fontsReady }) {
     setRole(null);
   }
 
-  function signOut() {
+  async function signOut() {
+    if (isFirebaseConfigured) {
+      try {
+        await logoutWithFirebase();
+      } catch (err) {
+        console.warn('[Firebase] Sign out error:', err.message);
+      }
+    }
     update((current) => logoutUser(current));
     switchRole();
   }
@@ -170,6 +224,9 @@ function Eventora({ fontsReady }) {
       notifications: current.notifications.map((item) => ids.includes(item.id) ? { ...item, read: true } : item),
       readReminders: [...new Set([...current.readReminders, ...ids.filter((id) => id.startsWith('reminder-'))])],
     }));
+    if (isFirebaseConfigured) {
+      ids.forEach((id) => markNotificationReadInFirestore(id));
+    }
   }
 
   function toggleSave(eventId) {
@@ -233,16 +290,45 @@ function Eventora({ fontsReady }) {
         const signUp = page.name === 'signUp';
         return <AccountScreen key={`${role}-${page.name}`} signUp={signUp} role={role} profile={data.profile} onBack={goBack}
           onSwitch={() => replace(signUp ? 'signIn' : 'signUp', { next: page.next, entry: page.entry })}
-          onContinue={({ name, email, city, organization }) => {
-            update((current) => {
+          onContinue={async ({ name, email, password, city, organization }) => {
+            if (isFirebaseConfigured) {
               if (signUp) {
-                const result = registerUser({ name, email, city, role, organization }, current);
-                return { ...current, ...result };
+                const result = await registerWithFirebase({
+                  name,
+                  email,
+                  password,
+                  city,
+                  role,
+                  organization,
+                  interests: data.profile.interests,
+                });
+                update((current) => ({
+                  ...current,
+                  signedIn: true,
+                  profile: { ...current.profile, ...result.profile },
+                }));
               } else {
-                const result = loginUser({ email, role }, current);
-                return { ...current, ...result };
+                const result = await loginWithFirebase({ email, password });
+                update((current) => ({
+                  ...current,
+                  signedIn: true,
+                  profile: { ...current.profile, ...result.profile },
+                }));
+                if (result.profile.role) {
+                  setRole(result.profile.role);
+                }
               }
-            });
+            } else {
+              update((current) => {
+                if (signUp) {
+                  const result = registerUser({ name, email, city, role, organization }, current);
+                  return { ...current, ...result };
+                } else {
+                  const result = loginUser({ email, role }, current);
+                  return { ...current, ...result };
+                }
+              });
+            }
             if (page.next) replace(page.next.name, page.next);
             else setPages((current) => current.slice(0, -1));
           }} />;
@@ -273,7 +359,17 @@ function Eventora({ fontsReady }) {
       case 'editProfile':
       case 'interests':
         return <SettingsScreen key={page.name} mode={page.name} profile={data.profile} signedIn={data.signedIn} onBack={goBack}
-          onSave={(profile) => { update((current) => ({ ...current, profile })); goBack(); }}
+          onSave={async (profile) => {
+            update((current) => ({ ...current, profile }));
+            if (isFirebaseConfigured && auth?.currentUser) {
+              try {
+                await updateUserProfileInFirestore(auth.currentUser.uid, profile);
+              } catch (err) {
+                console.warn('[Firebase] Could not update profile in Firestore:', err.message);
+              }
+            }
+            goBack();
+          }}
           onSignOut={signOut} />;
       case 'notifications':
         return <NotificationsScreen data={{ ...data, bookings, notifications: data.notifications.filter((notice) =>
@@ -284,6 +380,9 @@ function Eventora({ fontsReady }) {
         return <ReportScreen event={event} onBack={goBack} onSubmit={(reportCategory, note) => {
           const report = { id: randomUUID(), eventId: event.id, category: reportCategory, note, status: 'Open' };
           update((current) => ({ ...current, reports: [report, ...current.reports] }));
+          if (isFirebaseConfigured) {
+            saveReportToFirestore(report);
+          }
         }} />;
       default:
         if (isDiscovery) {

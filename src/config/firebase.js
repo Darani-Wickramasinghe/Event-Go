@@ -1,8 +1,17 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { getApp, getApps, initializeApp } from "firebase/app";
-import { getAuth, getReactNativePersistence, initializeAuth } from "firebase/auth";
+import * as authModule from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
-import { Platform } from "react-native";
+
+const { getAuth, initializeAuth } = authModule;
+const getReactNativePersistence = authModule.getReactNativePersistence;
+let Platform = { OS: "web" };
+try {
+  const rn = require("react-native");
+  if (rn && rn.Platform) Platform = rn.Platform;
+} catch (e) {
+  // Running in Node.js test environment
+}
 
 // Values come from the .env file (see .env.example). Each teammate has their own .env.
 const firebaseConfig = {
@@ -33,7 +42,7 @@ if (isFirebaseConfigured) {
   app = firstTime ? initializeApp(firebaseConfig) : getApp();
 
   // Keep the user signed in after the app closes (phone). The browser handles this itself.
-  auth = firstTime && Platform.OS !== "web"
+  auth = firstTime && Platform.OS !== "web" && typeof getReactNativePersistence === "function" && typeof initializeAuth === "function"
     ? initializeAuth(app, { persistence: getReactNativePersistence(AsyncStorage) })
     : getAuth(app);
 

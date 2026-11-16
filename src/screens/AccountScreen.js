@@ -8,22 +8,41 @@ export default function AccountScreen({ signUp, role, profile, onContinue, onSwi
   const [initial] = useState(() => accountFormDefaults(profile, role, signUp));
   const [name, setName] = useState(initial.name);
   const [email, setEmail] = useState(initial.email);
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [city, setCity] = useState(initial.city);
   const [organization, setOrganization] = useState(initial.organization);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const title = signUp ? 'Sign up' : 'Log in';
   const organizer = role === 'organizer';
 
-  function submit() {
+  async function submit() {
+    if (loading) return;
+    setError('');
+
     const address = email.trim().toLowerCase();
     if (signUp && !name.trim()) return setError('Enter your full name.');
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(address)) return setError('Enter a valid email address.');
+    if (!password) return setError('Enter your password.');
+    if (password.length < 6) return setError('Password must be at least 6 characters.');
+    if (signUp && password !== confirmPassword) return setError('Passwords do not match.');
     if (signUp && !city.trim()) return setError('Enter your home city.');
     if (signUp && organizer && !organization.trim()) return setError('Enter your organization name.');
+
+    setLoading(true);
     try {
-      onContinue({ name: name.trim(), email: address, city: city.trim(), organization: organization.trim() });
+      await onContinue({
+        name: name.trim(),
+        email: address,
+        password,
+        city: city.trim(),
+        organization: organization.trim(),
+      });
     } catch (failure) {
-      setError(failure.message);
+      setError(failure.message || 'Authentication failed. Please check your credentials.');
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -32,15 +51,102 @@ export default function AccountScreen({ signUp, role, profile, onContinue, onSwi
       <View style={styles.brand}>
         <EventoraLogo style={styles.logo} />
       </View>
-      <Copy>{organizer ? 'Event organizer' : 'Attendee'} · {signUp ? 'Create a demo profile on this device. All fields are required.' : 'Use the email from your demo profile on this device.'}</Copy>
-      {signUp && <Field label="Full name" value={name} onChangeText={setName} autoCapitalize="words" autoComplete="off" maxLength={70} />}
-      <Field label="Email address" value={email} onChangeText={setEmail} autoCapitalize="none" autoCorrect={false}
-        keyboardType="email-address" autoComplete={signUp ? 'off' : 'email'} placeholder="name@example.com" maxLength={120} onSubmitEditing={submit} />
-      {signUp && <Field label="Home city" value={city} onChangeText={setCity} autoCapitalize="words" placeholder="e.g. Kelaniya" maxLength={50} />}
-      {signUp && organizer && <Field label="Organization name" value={organization} onChangeText={setOrganization} autoCapitalize="words" maxLength={80} />}
+      <Copy>
+        {organizer ? 'Event organizer' : 'Attendee'} · {signUp ? 'Create your cloud account. All fields are required.' : 'Log in with your registered email and password.'}
+      </Copy>
+
+      {signUp && (
+        <Field
+          label="Full name"
+          value={name}
+          onChangeText={setName}
+          autoCapitalize="words"
+          autoComplete={signUp ? 'off' : 'name'}
+          maxLength={70}
+          editable={!loading}
+        />
+      )}
+
+      <Field
+        label="Email address"
+        value={email}
+        onChangeText={setEmail}
+        autoCapitalize="none"
+        autoCorrect={false}
+        keyboardType="email-address"
+        autoComplete={signUp ? 'off' : 'email'}
+        placeholder="name@example.com"
+        maxLength={120}
+        editable={!loading}
+      />
+
+      <Field
+        label="Password"
+        value={password}
+        onChangeText={setPassword}
+        secureTextEntry
+        autoCapitalize="none"
+        autoCorrect={false}
+        placeholder="Minimum 6 characters"
+        maxLength={128}
+        editable={!loading}
+        onSubmitEditing={signUp ? undefined : submit}
+      />
+
+      {signUp && (
+        <Field
+          label="Confirm password"
+          value={confirmPassword}
+          onChangeText={setConfirmPassword}
+          secureTextEntry
+          autoCapitalize="none"
+          autoCorrect={false}
+          placeholder="Re-enter your password"
+          maxLength={128}
+          editable={!loading}
+          onSubmitEditing={submit}
+        />
+      )}
+
+      {signUp && (
+        <Field
+          label="Home city"
+          value={city}
+          onChangeText={setCity}
+          autoCapitalize="words"
+          placeholder="e.g. Kelaniya"
+          maxLength={50}
+          editable={!loading}
+        />
+      )}
+
+      {signUp && organizer && (
+        <Field
+          label="Organization name"
+          value={organization}
+          onChangeText={setOrganization}
+          autoCapitalize="words"
+          placeholder="e.g. ACM Student Chapter"
+          maxLength={80}
+          editable={!loading}
+        />
+      )}
+
       {!!error && <Copy alert>{error}</Copy>}
-      <Action label={signUp ? 'Create demo account' : 'Log in to demo'} icon="arrow-forward" onPress={submit} />
-      <Action label={signUp ? 'Already have an account? Log in' : profile.name && !profile.email ? 'Finish setting up your profile' : 'New here? Sign up'} secondary onPress={onSwitch} />
+
+      <Action
+        label={loading ? 'Please wait…' : (signUp ? 'Create account' : 'Log in')}
+        icon="arrow-forward"
+        onPress={submit}
+        disabled={loading}
+      />
+
+      <Action
+        label={signUp ? 'Already have an account? Log in' : 'New here? Sign up'}
+        secondary
+        onPress={onSwitch}
+        disabled={loading}
+      />
     </Page>
   );
 }
