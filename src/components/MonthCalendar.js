@@ -7,7 +7,7 @@ import { colors, headingFont } from '../theme';
 const weekdays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 export const fullDate = { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' };
 
-export default function MonthCalendar({ month, selected, onMonthChange, onSelect, counts, min, max }) {
+export default function MonthCalendar({ month, selected, onMonthChange, onSelect, counts, countLabel = 'reservation', min, max }) {
   const today = sriLankaDate();
   return (
     <View>
@@ -31,7 +31,7 @@ export default function MonthCalendar({ month, selected, onMonthChange, onSelect
           return (
             <View key={date} style={styles.cell}>
               <Pressable accessibilityRole="button"
-                accessibilityLabel={counts ? `${label}, ${count} ${count === 1 ? 'reservation' : 'reservations'}` : label}
+                accessibilityLabel={counts ? `${label}, ${count} ${countLabel}${count === 1 ? '' : 's'}` : label}
                 accessibilityState={{ selected: active, disabled }}
                 aria-pressed={Platform.OS === 'web' ? active : undefined}
                 disabled={disabled} onPress={() => onSelect(date)}

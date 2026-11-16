@@ -1,261 +1,241 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { useEffect, useState } from 'react';
-import { BackHandler, Image, Pressable, StyleSheet, Text, View } from 'react-native';
-import { Action, Choices, Copy, Field, Page, Panel } from '../components/FlowUI';
-import TicketScanner from '../components/TicketScanner';
-import EventCoverPicker from '../components/EventCoverPicker';
-import DateField from '../components/DateField';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Keyboard, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Action, Copy, EmptyState, Field, HeaderAction, Page, Panel, SectionHeading } from '../components/FlowUI';
+import SideMenu from '../components/SideMenu';
+import AttendanceProgress from '../components/AttendanceProgress';
+import { CheckInEvents, OrganizerTicketCheckIn } from './OrganizerCheckIn';
 import AttendanceDashboard from '../components/AttendanceDashboard';
-import VenuePickerScreen from './VenuePickerScreen';
-import { categories, eventCoverSource, formatPrice } from '../data/events';
-import { eventFromDraft } from '../data/eventOperations';
+import OrganizerEventEditor from './OrganizerEventEditor';
+import useOrganizerBack from '../hooks/useOrganizerBack';
+import CalendarScreen from './CalendarScreen';
+import OrganizerEventsScreen from './OrganizerEventsScreen';
+import OrganizerEventHub from './OrganizerEventHub';
+import { OrganizerOverview, OrganizerOverviewHeader } from './OrganizerOverview';
+import { OrganizerNotificationsScreen, OrganizerNotificationSettings } from './OrganizerNotificationsScreen';
+import { EditOrganizerProfile, OrganizerAccountProfile } from './OrganizerProfileScreen';
+import { SettingsScreen } from './ProfileScreen';
 import { isMapPoint } from '../data/venueSearch';
 import { exportAttendanceCsv } from '../data/attendanceExport';
 import { getOrganizerEvents } from '../data/attendance';
-import { eventTime, remainingPlaces, reservedPlaces, sriLankaDate } from '../data/reservations';
-import { colors, headingFont } from '../theme';
-
-const eventGroups = {
-  All: null,
-  Live: ['Published', 'Rescheduled', 'Closed'],
-  Drafts: ['Draft'],
-  Completed: ['Completed'],
-  Cancelled: ['Cancelled'],
-  Archived: ['Archived'],
-};
+import { matchesOrganizerEventFilter, organizerEventCounts, publicEventStatuses } from '../data/organizerEvents';
+import { organizerInbox, organizerPreferences, updateOrganizerPreferences } from '../data/organizerNotifications';
+import { editableOrganizerProfile, saveOrganizerProfile } from '../data/organizerProfiles';
+import { eventTime } from '../data/reservations';
+import { colors, headingFont, iconSizes, spacing, touchTargets, typography } from '../theme';
 
 const workspaceTabs = [
-  { label: 'Overview', icon: 'grid-outline' },
-  { label: 'Events', icon: 'calendar-outline' },
-  { label: 'Attendance', icon: 'people-outline' },
-  { label: 'Check-in', icon: 'qr-code-outline' },
+  { label: 'Overview', icon: 'home' },
+  { label: 'Events', icon: 'calendar' },
+  { label: 'Attendance', icon: 'people' },
+  { label: 'Check-in', icon: 'qr-code' },
+  { label: 'Profile', icon: 'person' },
 ];
 
-function organizerEventStatus(event) {
-  return eventGroups.Live.includes(event.status) && eventTime(event, event.endTime) <= Date.now()
-    ? 'Completed'
-    : event.status;
-}
+const organizerTools = [
+  { name: 'Calendar', label: 'Event calendar', icon: 'calendar-number-outline' },
+  { name: 'Notifications', label: 'Notifications', icon: 'notifications-outline' },
+  { name: 'Notification settings', label: 'Notification settings', icon: 'options-outline' },
+  { name: 'Settings', label: 'Settings', icon: 'settings-outline' },
+  { name: 'Switch role', label: 'Switch role', icon: 'swap-horizontal-outline' },
+];
 
-export function OrganizerScreen({ data, events, onSave, onStatus, onScan, onBack, onOpenSettings }) {
+export function OrganizerScreen({ data, events, onSave, onStatus, onScan, onBack, onSignOut, update, commit, storageWarning }) {
   const [editor, setEditor] = useState(null);
   const [selected, setSelected] = useState(null);
   const [tab, setTab] = useState('Overview');
   const [group, setGroup] = useState('All');
   const [query, setQuery] = useState('');
-  const myEvents = getOrganizerEvents(events, data.profile);
-  const visibleEvents = myEvents.filter((event) => (!eventGroups[group] || eventGroups[group].includes(organizerEventStatus(event)))
-    && event.title.toLowerCase().includes(query.trim().toLowerCase()));
-  const live = myEvents.filter((event) => eventGroups.Live.includes(organizerEventStatus(event)));
-  const upcoming = [...live].sort((first, second) => eventTime(first) - eventTime(second));
-  const attendeeEvents = [
-    ...upcoming,
-    ...myEvents.filter((event) => event.status !== 'Draft' && !live.includes(event))
-      .sort((first, second) => eventTime(second) - eventTime(first)),
-  ];
-  const today = sriLankaDate();
-  const todayEvents = upcoming.filter((event) => event.startDate === today);
-  const laterEvents = upcoming.filter((event) => event.startDate !== today);
-  const nextEvent = upcoming[0];
-  const organization = data.profile.organization || data.organizerApplication?.organization || 'Organizer dashboard';
+  const [sort, setSort] = useState('Upcoming first');
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [calendarView, setCalendarView] = useState({});
+  const [notificationBack, setNotificationBack] = useState('Overview');
+  const [toolBack, setToolBack] = useState('Overview');
+  const [editingProfile, setEditingProfile] = useState(false);
+  const [profileSaved, setProfileSaved] = useState(false);
+  const [attendanceView, setAttendanceView] = useState({});
+  const myEvents = useMemo(() => {
+    if (!data.signedIn) return [];
+    const createdEventIds = new Set(data.createdEvents.map((event) => event.id));
+    return getOrganizerEvents(events.filter((event) => createdEventIds.has(event.id)), data.profile);
+  }, [data.createdEvents, data.profile, data.signedIn, events]);
+  const organizerProfile = editableOrganizerProfile(data);
+  const organization = organizerProfile.organization || data.organizerApplication?.organization;
+  const preferences = organizerPreferences(data);
+  const notices = organizerInbox(data, myEvents, preferences);
+  const unreadCount = notices.filter((notice) => !notice.read).length;
+  const notificationLabel = unreadCount ? `Open notifications, ${unreadCount} unread` : 'Open notifications';
 
   function openEvent(event, screen = 'overview') {
     setSelected({ id: event.id, screen });
   }
 
-  useOrganizerBack(tab === 'Overview' ? onBack : () => setTab('Overview'), !editor && !selected);
+  function openEventList(filter) {
+    setGroup(filter === 'Live' ? 'Published' : filter);
+    setQuery('');
+    setTab('Events');
+  }
 
-  if (editor) return <EventEditor event={editor} bookings={data.bookings} knownVenues={events.filter(isMapPoint)} onBack={() => setEditor(null)} onSave={(draft, publish) => {
-    onSave(draft, editor.id, publish);
-    if (!editor.id || publish) { setGroup(publish ? 'Live' : 'Drafts'); setQuery(''); setTab('Events'); }
+  function openMenu() {
+    Keyboard.dismiss();
+    setMenuOpen(true);
+  }
+
+  function openTool(name) {
+    Keyboard.dismiss();
+    setMenuOpen(false);
+    if (name === 'Switch role') return onBack();
+    if (name === 'Notification settings') setNotificationBack(tab);
+    if (['Calendar', 'Notifications', 'Settings'].includes(name)) setToolBack(tab);
+    setTab(name);
+  }
+
+  function updatePreferences(change) {
+    update((current) => updateOrganizerPreferences(current, change));
+  }
+
+  function backFromTool() {
+    if (editingProfile) setEditingProfile(false);
+    else if (selected) setSelected(null);
+    else if (tab === 'Overview') onBack();
+    else if (tab === 'Notification settings') setTab(notificationBack);
+    else if (['Calendar', 'Notifications', 'Settings'].includes(tab)) setTab(toolBack);
+    else setTab('Overview');
+  }
+
+  const selectedEvent = selected && myEvents.find((event) => event.id === selected.id);
+  useOrganizerBack(backFromTool, !menuOpen && !editor && !selectedEvent && !editingProfile);
+
+  if (editingProfile) {
+    return <EditOrganizerProfile profile={organizerProfile} onBack={backFromTool}
+      onSave={async (draft) => {
+        await commit((current) => saveOrganizerProfile(current, draft));
+        setProfileSaved(true);
+        setEditingProfile(false);
+      }} />;
+  }
+  if (editor) return <OrganizerEventEditor event={editor} bookings={data.bookings} knownVenues={events.filter(isMapPoint)} onBack={() => setEditor(null)} onSave={async (draft, publish) => {
+    await onSave(draft, editor.id, publish);
+    if (!editor.id || publish) openEventList(publish ? 'Live' : 'Drafts');
     setEditor(null);
   }} />;
   if (selected) {
-    const event = events.find((item) => item.id === selected.id);
-    return <ManageEvent key={event.id} event={event} initialScreen={selected.screen} bookings={data.bookings}
-      onBack={() => setSelected(null)} onEdit={() => setEditor(event)} onScan={onScan}
-      onStatus={(eventId, status, reason) => {
-        onStatus(eventId, status, reason);
-        if (eventGroups[group] && !eventGroups[group].includes(status)) setGroup('All');
+    if (!selectedEvent) return <Page title="Event management" onBack={backFromTool}>
+      <EmptyState icon="calendar-outline" title="Event unavailable"
+        description={storageWarning ? 'Reopen the app to try loading your saved events.' : 'This event could not be found in your organizer workspace.'} />
+    </Page>;
+    return <ManageEvent key={selectedEvent.id} event={selectedEvent} initialScreen={selected.screen} bookings={data.bookings}
+      onBack={() => setSelected(null)} onEdit={() => setEditor(selectedEvent)} onScan={onScan}
+      onStatus={async (eventId, status, reason) => {
+        await onStatus(eventId, status, reason);
+        if (!matchesOrganizerEventFilter({ ...selectedEvent, status }, group)) setGroup('All');
       }} />;
+  }
+  if (tab === 'Calendar') {
+    return <CalendarScreen organizer events={myEvents} view={calendarView} onChange={setCalendarView}
+      onBack={backFromTool} onOpen={openEvent} onBrowse={() => openEventList('All')} />;
+  }
+  if (tab === 'Settings') {
+    return <SettingsScreen profile={data.profile} signedIn={data.signedIn} onBack={backFromTool}
+      onSave={(profile) => { update((current) => ({ ...current, profile })); backFromTool(); }} onSignOut={onSignOut} />;
+  }
+  if (tab === 'Notifications') {
+    return <OrganizerNotificationsScreen notices={notices} onBack={backFromTool} onOpenEvent={openEvent}
+      onSettings={() => openTool('Notification settings')} onRead={(ids) => updatePreferences((current) => ({
+        ...current, readIds: [...new Set([...(current.readIds ?? []), ...ids])],
+      }))} />;
+  }
+  if (tab === 'Notification settings') {
+    return <OrganizerNotificationSettings preferences={preferences} onBack={backFromTool}
+      onChange={(key, value) => updatePreferences((current) =>
+        current.muted && key !== 'muted' ? current : { ...current, [key]: value })} />;
   }
   return (
     <View style={styles.workspace}>
-      <Page key={tab} title={tab === 'Overview' ? 'Organizer dashboard' : tab} onBack={tab === 'Overview' ? onBack : () => setTab('Overview')}>
+      <Page key={tab} title={tab === 'Events' ? 'My Events' : tab} showsVerticalScrollIndicator={tab !== 'Overview'}
+        leading={<HeaderAction label="Open organizer menu" icon="menu" onPress={openMenu} />}
+        actions={<HeaderAction label={notificationLabel} icon="notifications-outline" badge={unreadCount}
+          onPress={() => openTool('Notifications')} />}
+        banner={tab === 'Overview' && (
+          <OrganizerOverviewHeader profile={organizerProfile} organization={organization} onMenu={openMenu}
+            notificationLabel={notificationLabel} unreadCount={unreadCount} onNotifications={() => openTool('Notifications')} />
+        )}>
         {tab === 'Overview' && (
-          <>
-            <View style={styles.hero}>
-              <View pointerEvents="none" style={styles.heroOrbit} />
-              <Ionicons name="business-outline" size={23} color="#CFC9FF" />
-              <Text accessibilityRole="header" style={styles.heroTitle}>{organization}</Text>
-              <Pressable accessibilityRole="button" onPress={() => setEditor({})}
-                style={({ pressed }) => [styles.heroAction, pressed && styles.pressed]}>
-                <Ionicons name="add" size={21} color={colors.purpleDark} />
-                <Text style={styles.heroActionLabel}>Create event draft</Text>
-              </Pressable>
-            </View>
-            <DashboardSummary events={events} bookings={data.bookings} />
-            <Section title="Next event">
-              {nextEvent ? (
-                <Pressable accessibilityRole="button" accessibilityLabel={`Manage ${nextEvent.title}`} onPress={() => openEvent(nextEvent)}
-                  style={({ pressed }) => [styles.featuredEvent, pressed && styles.pressed]}>
-                  <Image source={nextEvent.image} style={styles.featuredImage} />
-                  <View style={styles.featuredBody}>
-                    <View style={styles.rowBody}>
-                      <Text style={styles.rowTitle}>{nextEvent.title}</Text>
-                      <Text style={styles.rowMeta}>{nextEvent.date} · {nextEvent.venue}</Text>
-                    </View>
-                    <Ionicons name="arrow-forward" size={20} color={colors.purpleDark} />
-                  </View>
-                </Pressable>
-              ) : <Copy>Your next published event will appear here.</Copy>}
-            </Section>
-            <NavRow label="Settings" icon="settings-outline" onPress={onOpenSettings} />
-          </>
+          <OrganizerOverview events={myEvents} bookings={data.bookings} notices={notices}
+            onCreate={() => setEditor({})} onManage={openEvent} onEvents={openEventList}
+            onAttendance={() => setTab('Attendance')} onCheckIn={() => setTab('Check-in')} />
         )}
         {tab === 'Events' && (
-          <>
-            <Action label="Create event draft" icon="add" onPress={() => setEditor({})} />
-            <Field label="Search my events" value={query} onChangeText={setQuery} placeholder="Event name" />
-            <Choices label="Event status" options={Object.keys(eventGroups)} selected={[group]} onSelect={setGroup} />
-            {visibleEvents.map((event) => (
-              <EventRow key={event.id} event={event} onPress={() => openEvent(event)}
-                reserved={reservedPlaces(event, data.bookings)} />
-            ))}
-            {!visibleEvents.length && <Copy>No events in this view.</Copy>}
-          </>
+          <OrganizerEventsScreen events={myEvents} bookings={data.bookings} storageWarning={storageWarning}
+            filter={group} query={query} sort={sort} onFilter={setGroup} onQuery={setQuery} onSort={setSort}
+            onCreate={() => setEditor({})} onManage={openEvent} onEdit={setEditor}
+            onPublish={async (event) => {
+              await onStatus(event.id, 'Published');
+              if (!matchesOrganizerEventFilter({ ...event, status: 'Published' }, group)) openEventList('Published');
+            }} />
         )}
         {(tab === 'Attendance' || tab === 'Attendees') && (
           <AttendanceDashboard
             events={myEvents.filter((e) => e.status !== 'Draft').length > 0 ? myEvents.filter((e) => e.status !== 'Draft') : myEvents}
             bookings={data.bookings}
+            view={attendanceView} onViewChange={setAttendanceView}
             onCheckIn={onScan}
             onOpenScanner={(evt) => openEvent(evt, 'checkIn')}
           />
         )}
-        {tab === 'Check-in' && (
-          <>
-            <Section title="Today">
-              {todayEvents.map((event) => (
-                <EventToolRow key={event.id} event={event} icon="qr-code-outline" detail={`${event.startTime} · ${event.venue}`}
-                  onPress={() => openEvent(event, 'checkIn')} />
-              ))}
-              {!todayEvents.length && <Copy>No events to check in today.</Copy>}
-            </Section>
-            {!!laterEvents.length && (
-              <Section title="Upcoming events">
-                {laterEvents.map((event) => (
-                  <EventToolRow key={event.id} event={event} icon="qr-code-outline" detail={event.date}
-                    onPress={() => openEvent(event, 'checkIn')} />
-                ))}
-              </Section>
-            )}
-          </>
-        )}
+        {tab === 'Check-in' && <CheckInEvents events={myEvents} bookings={data.bookings}
+          onOpen={(event) => openEvent(event, 'checkIn')} onBrowse={() => openEventList('All')} />}
+        {tab === 'Profile' && <OrganizerAccountProfile profile={organizerProfile} saved={profileSaved}
+          onEdit={() => { setProfileSaved(false); setEditingProfile(true); }}
+          onSettings={() => openTool('Settings')} onNotifications={() => openTool('Notification settings')} onSignOut={onSignOut} />}
       </Page>
-      <View style={styles.tabBar}>
-        {workspaceTabs.map(({ label, icon }) => (
-          <Pressable key={label} accessibilityRole="tab" accessibilityLabel={label} accessibilityState={{ selected: tab === label }}
-            onPress={() => setTab(label)} style={[styles.tab, tab === label && styles.activeTab]}>
-            <Ionicons name={icon} size={21} color={tab === label ? colors.purpleDark : colors.muted} />
-            <Text style={[styles.tabLabel, tab === label && styles.activeLabel]}>{label}</Text>
-          </Pressable>
-        ))}
-      </View>
+      <OrganizerTabBar selected={tab} onSelect={setTab} />
+      {menuOpen && <SideMenu profile={{ ...data.profile, name: organizerProfile.name }} picture={organizerProfile.picture}
+        signedIn={data.signedIn} tools={organizerTools}
+        onOpen={openTool} onClose={() => setMenuOpen(false)} onSignOut={onSignOut} />}
     </View>
   );
 }
 
-function useOrganizerBack(onBack, enabled = true) {
-  useEffect(() => {
-    if (!enabled) return;
-    const subscription = BackHandler.addEventListener('hardwareBackPress', () => { onBack(); return true; });
-    return () => subscription.remove();
-  }, [onBack, enabled]);
-}
+function OrganizerTabBar({ selected, onSelect }) {
+  const buttons = useRef([]);
 
-function Section({ title, children }) {
-  return <View style={styles.section}><Text accessibilityRole="header" style={styles.sectionTitle}>{title}</Text>{children}</View>;
-}
+  function select(label) {
+    Keyboard.dismiss();
+    onSelect(label);
+  }
 
-const statusTone = {
-  Published: 'green',
-  'Checked in': 'green',
-  Draft: 'neutral',
-  Archived: 'neutral',
-  Cancelled: 'red',
-  Closed: 'amber',
-  Rescheduled: 'amber',
-};
+  function handleKeyDown(event, index) {
+    const last = workspaceTabs.length - 1;
+    const destinations = {
+      ArrowLeft: index === 0 ? last : index - 1,
+      ArrowRight: index === last ? 0 : index + 1,
+      Home: 0,
+      End: last,
+      ' ': index,
+    };
+    const next = destinations[event.key];
+    if (next === undefined) return;
+    event.preventDefault();
+    select(workspaceTabs[next].label);
+    buttons.current[next]?.focus();
+  }
 
-function StatusPill({ label }) {
-  const tone = styles[statusTone[label] ?? 'purple'];
-  return <Text style={[styles.statusPill, tone]}>{label}</Text>;
-}
-
-function EventRow({ event, reserved, onPress }) {
   return (
-    <Pressable accessibilityRole="button" accessibilityLabel={`Manage ${event.title}`} onPress={onPress}
-      style={({ pressed }) => [styles.eventRow, pressed && styles.pressed]}>
-      <Image source={event.image} style={styles.thumbnail} />
-      <View style={styles.rowBody}>
-        <Text style={styles.rowTitle}>{event.title}</Text>
-        <Text style={styles.rowMeta}>{event.date} · {event.venue}</Text>
-        <View style={styles.eventMeta}>
-          <StatusPill label={organizerEventStatus(event)} />
-          {event.status !== 'Draft' && <Text style={styles.rowMeta}>{reserved} reserved</Text>}
-        </View>
-      </View>
-      <Ionicons name="chevron-forward" size={17} color={colors.muted} />
-    </Pressable>
-  );
-}
-
-function EventToolRow({ event, icon, detail, onPress }) {
-  const isCheckIn = icon === 'qr-code-outline';
-  return (
-    <Pressable accessibilityRole="button" accessibilityLabel={`Manage ${event.title}`} onPress={onPress}
-      style={({ pressed }) => [isCheckIn ? styles.gateRow : styles.navRow, pressed && styles.pressed]}>
-      <View style={[styles.toolIcon, isCheckIn && styles.gateIcon]}>
-        <Ionicons name={icon} size={22} color={isCheckIn ? '#006451' : colors.purpleDark} />
-      </View>
-      <View style={styles.rowBody}>
-        <Text style={styles.rowTitle}>{event.title}</Text>
-        <Text style={styles.rowMeta}>{detail}</Text>
-      </View>
-      <Ionicons name={isCheckIn ? 'arrow-forward' : 'chevron-forward'} size={18} color={colors.muted} />
-    </Pressable>
-  );
-}
-
-function NavRow({ label, icon, onPress }) {
-  return (
-    <Pressable accessibilityRole="button" accessibilityLabel={label} onPress={onPress} style={styles.navRow}>
-      <Ionicons name={icon} size={21} color={colors.purpleDark} />
-      <Text style={[styles.rowTitle, styles.rowBody]}>{label}</Text>
-      <Ionicons name="chevron-forward" size={17} color={colors.muted} />
-    </Pressable>
-  );
-}
-
-function DashboardSummary({ events, bookings }) {
-  const eventIds = new Set(events.map((e) => e.id));
-  const myBookings = bookings.filter((b) => eventIds.has(b.eventId));
-  const metrics = [
-    ['calendar-outline', 'Live events', events.filter((event) => eventGroups.Live.includes(organizerEventStatus(event))).length],
-    ['document-text-outline', 'Drafts', events.filter((event) => event.status === 'Draft').length],
-    ['ticket-outline', 'Reserved places', myBookings.filter((booking) => booking.status === 'Confirmed').reduce((total, booking) => total + booking.tickets.length, 0)],
-    ['checkmark-circle-outline', 'Checked in', myBookings.filter((booking) => booking.status === 'Confirmed').flatMap((booking) => booking.tickets).filter((ticket) => ticket.checkedInAt).length],
-  ];
-  return (
-    <View style={styles.metrics}>
-      {metrics.map(([icon, label, count]) => (
-        <View key={label} style={styles.metric}>
-          <Ionicons name={icon} size={19} color={colors.purpleDark} />
-          <Text style={styles.count}>{count}</Text>
-          <Text style={styles.rowMeta}>{label}</Text>
-        </View>
-      ))}
+    <View accessibilityRole="tablist" accessibilityLabel="Organizer navigation" style={styles.tabBar}>
+      {workspaceTabs.map(({ label, icon }, index) => {
+        const active = selected === label;
+        return (
+          <Pressable key={label} ref={(button) => { buttons.current[index] = button; }}
+            accessibilityRole="tab" accessibilityLabel={label} aria-selected={active}
+            {...(Platform.OS === 'web' && { tabIndex: active ? 0 : -1, onKeyDown: (event) => handleKeyDown(event, index) })}
+            onPress={() => select(label)} style={({ focused }) => [styles.tab, focused && styles.tabFocus]}>
+            <Ionicons name={active ? icon : `${icon}-outline`} size={iconSizes.lg}
+              color={active ? colors.primary : colors.textSecondary} />
+            <Text numberOfLines={2} style={styles.tabLabel}>{label}</Text>
+          </Pressable>
+        );
+      })}
     </View>
   );
 }
@@ -273,203 +253,63 @@ function AttendanceCounts({ items }) {
   );
 }
 
-function EventEditor({ event, bookings, knownVenues, onSave, onBack }) {
-  const [draft, setDraft] = useState({
-    title: event.title ?? '', city: event.city ?? '', venue: event.venue ?? '',
-    category: event.category ?? 'Music', setting: event.setting ?? 'Indoor', description: event.description ?? '',
-    startDate: event.startDate ?? sriLankaDate(), startTime: event.startTime ?? '10:00', endTime: event.endTime ?? '12:00',
-    capacity: String(event.capacity ?? ''), price: String(event.price ?? 0),
-    latitude: String(event.latitude ?? ''), longitude: String(event.longitude ?? ''),
-    reason: '',
-    eligibility: event.eligibility ?? '', accessibility: event.accessibility ?? '',
-    coverImage: event.coverImage ?? null,
-  });
-  const [error, setError] = useState('');
-  const [step, setStep] = useState(0);
-  const [pickingVenue, setPickingVenue] = useState(false);
-  const [dateOpen, setDateOpen] = useState(false);
-  const [preparingCover, setPreparingCover] = useState(false);
-  const cover = eventCoverSource(draft.coverImage, event.defaultImage, draft.category);
-  const steps = ['Details', 'Schedule', 'Admission', 'Preview'];
-  const previous = step > 0 ? () => {
-    if (dateOpen) setDateOpen(false);
-    else { setError(''); setStep(step - 1); }
-  } : onBack;
-  const closePicker = () => setPickingVenue(false);
-  useOrganizerBack(pickingVenue ? closePicker : previous);
-  const point = draft.latitude !== '' && draft.longitude !== ''
-    ? { latitude: Number(draft.latitude), longitude: Number(draft.longitude) }
-    : null;
-
-  function next() {
-    setError('');
-    if (step === 0 && (!draft.title.trim() || !draft.description.trim())) {
-      setError('Enter a title and description to continue.');
-      return;
-    }
-    if (step === 1 && (!draft.venue.trim() || !draft.city.trim())) {
-      setError('Enter a venue and city to continue.');
-      return;
-    }
-    if (step > 0) {
-      try {
-        eventFromDraft(step === 1 ? { ...draft, capacity: '', price: '0' } : draft, event.id, bookings);
-      } catch (failure) {
-        setError(failure.message);
-        return;
-      }
-    }
-    setDateOpen(false);
-    setStep(step + 1);
-  }
-
-  function save(publish = false) {
-    try {
-      onSave(draft, publish);
-    } catch (failure) {
-      setError(failure.message);
-    }
-  }
-
-  if (pickingVenue) {
-    return <VenuePickerScreen venue={draft.venue} city={draft.city} point={point} knownVenues={knownVenues} onBack={closePicker}
-      onSelect={(location) => {
-        setDraft((current) => ({ ...current, ...location }));
-        setError('');
-        closePicker();
-      }} />;
-  }
-
-  if (step === 3) {
-    return (
-      <Page title="Preview listing" onBack={previous}>
-        <EditorProgress step={step} steps={steps} />
-        <Image source={cover} accessibilityRole="image" accessibilityLabel="Listing cover preview" resizeMode="cover" style={styles.eventCover} />
-        <View style={styles.section}>
-          <Text style={styles.statusText}>{draft.category} · {draft.setting}</Text>
-          <Text accessibilityRole="header" style={styles.sectionTitle}>{draft.title.trim() || 'Untitled event'}</Text>
-          <ListingFact icon="calendar-outline">{draft.startDate} · {draft.startTime}–{draft.endTime} · Sri Lanka time</ListingFact>
-          <ListingFact icon="location-outline">{draft.venue}, {draft.city}</ListingFact>
-          <ListingFact icon="ticket-outline">{formatPrice(Number(draft.price))} · {draft.capacity || 'Unlimited'} places</ListingFact>
-        </View>
-        <Section title="About this event">
-          <Copy>{draft.description}</Copy>
-          {!!draft.eligibility && <Copy>Eligibility · {draft.eligibility}</Copy>}
-          {!!draft.accessibility && <Copy>Accessibility · {draft.accessibility}</Copy>}
-        </Section>
-        {!!error && <Copy alert>{error}</Copy>}
-        {(!event.id || event.status === 'Draft') && <Action label="Publish event" onPress={() => save(true)} />}
-        <Action label={!event.id || event.status === 'Draft' ? 'Save draft' : 'Save event changes'}
-          secondary={!event.id || event.status === 'Draft'} onPress={() => save()} />
-        <Action label="Back to editing" secondary onPress={previous} />
-      </Page>
-    );
-  }
-
-  return (
-    <Page key={step} title={event.id ? 'Edit event' : 'New event draft'} onBack={previous}>
-      <EditorProgress step={step} steps={steps} />
-      {step === 0 && (
-        <>
-          <Field label="Event title" value={draft.title} maxLength={90} onChangeText={(title) => setDraft({ ...draft, title })} />
-          <Choices label="Category" options={categories.slice(1).map((category) => category.label)} selected={[draft.category]} onSelect={(category) => setDraft({ ...draft, category })} />
-          <Choices label="Venue setting" options={['Indoor', 'Outdoor']} selected={[draft.setting]} onSelect={(setting) => setDraft({ ...draft, setting })} />
-          <Field label="Description" multiline maxLength={700} value={draft.description} onChangeText={(description) => setDraft({ ...draft, description })} />
-          <EventCoverPicker image={cover} hasCustomCover={!!draft.coverImage}
-            onBusyChange={setPreparingCover} onChange={(coverImage) => setDraft((current) => ({ ...current, coverImage }))} />
-        </>
-      )}
-      {step === 1 && (
-        <Panel title="Venue location">
-          <Copy>{point ? [draft.venue, draft.city].filter(Boolean).join(', ') : 'Search for a venue or drop a pin on the map.'}</Copy>
-          <Action label={point ? 'Change venue on map' : 'Choose venue on map'} icon="location-outline" secondary onPress={() => setPickingVenue(true)} />
-          {!point && !!draft.venue && !!draft.city && <Copy>Saved venue: {draft.venue}, {draft.city}</Copy>}
-        </Panel>
-      )}
-      {step === 1 && <DateField label="Event date" value={draft.startDate} expanded={dateOpen}
-        onToggle={() => setDateOpen(!dateOpen)}
-        onChange={(startDate) => { setDraft((current) => ({ ...current, startDate })); setError(''); setDateOpen(false); }} />}
-      {step === 1 && [
-        ['Start time (HH:MM)', 'startTime', '10:00'], ['End time (HH:MM)', 'endTime', '12:00'],
-      ].map(([label, key, placeholder]) => (
-        <Field key={key} label={label} placeholder={placeholder} maxLength={100} value={draft[key]} onChangeText={(value) => setDraft({ ...draft, [key]: value })} />
-      ))}
-      {step === 2 && (
-        <>
-          <Field label="Capacity (blank for unlimited)" value={draft.capacity} keyboardType="number-pad" onChangeText={(capacity) => setDraft({ ...draft, capacity })} />
-          <Field label="Price (LKR)" value={draft.price} keyboardType="number-pad" onChangeText={(price) => setDraft({ ...draft, price })} />
-          <Field label="Eligibility (optional)" value={draft.eligibility} maxLength={200} onChangeText={(eligibility) => setDraft({ ...draft, eligibility })} />
-          <Field label="Accessibility (optional)" value={draft.accessibility} maxLength={200} onChangeText={(accessibility) => setDraft({ ...draft, accessibility })} />
-          {['Published', 'Rescheduled', 'Closed'].includes(event.status) && (
-            <Field label="Reason for schedule or venue changes" value={draft.reason} maxLength={240} onChangeText={(reason) => setDraft({ ...draft, reason })} />
-          )}
-        </>
-      )}
-      {!!error && <Copy alert>{error}</Copy>}
-      <Action label={step === 2 ? 'Preview listing' : 'Continue'} icon="arrow-forward" disabled={preparingCover} onPress={next} />
-    </Page>
-  );
-}
-
-function ListingFact({ icon, children }) {
-  return (
-    <View style={styles.listingFact}>
-      <Ionicons name={icon} size={17} color={colors.purpleDark} />
-      <Text style={[styles.rowBody, styles.rowMeta]}>{children}</Text>
-    </View>
-  );
-}
-
-function EditorProgress({ step, steps }) {
-  return <View style={styles.progress}>
-    <Text style={styles.statusText}>Step {step + 1} of {steps.length}</Text>
-    <Text accessibilityRole="header" style={styles.sectionTitle}>{steps[step]}</Text>
-    <View style={styles.progressTrack}>
-      {steps.map((label, index) => <View key={label} style={[styles.progressSegment, index <= step && styles.progressActive]} />)}
-    </View>
-  </View>;
-}
+const eventConfirmations = {
+  close: { title: 'Close registration', status: 'Closed', text: 'New reservations will close. Existing tickets stay valid for check-in.' },
+  cancel: { title: 'Cancel event', status: 'Cancelled' },
+  archive: { title: 'Archive event', status: 'Archived', text: 'This event will move to Archived and its listing will be removed from discovery.' },
+};
 
 function ManageEvent({ event, bookings, initialScreen, onBack, onEdit, onStatus, onScan }) {
   const [reason, setReason] = useState('');
   const [message, setMessage] = useState('');
-  const [code, setCode] = useState('');
   const [screen, setScreen] = useState(initialScreen);
-  const [summaryBack, setSummaryBack] = useState('overview');
-  const [attendeeQuery, setAttendeeQuery] = useState('');
-  const [attendeeStatus, setAttendeeStatus] = useState('All');
+  const [section, setSection] = useState('Overview');
+  const [attendanceView, setAttendanceView] = useState({});
+  const [scannerFromAttendance, setScannerFromAttendance] = useState(false);
   const [exporting, setExporting] = useState(false);
-  const related = bookings.filter((booking) => booking.eventId === event.id);
-  const reserved = reservedPlaces(event, related);
-  const remaining = remainingPlaces(event, related);
-  const publicEvent = ['Published', 'Rescheduled', 'Closed'].includes(event.status);
-  const ended = eventTime(event, event.endTime) <= Date.now();
+  const [updating, setUpdating] = useState(false);
+  const updatingRef = useRef(false);
+  const [now, setNow] = useState(Date.now);
+  useEffect(() => {
+    setNow(Date.now());
+    const clock = setInterval(() => setNow(Date.now()), 60000);
+    return () => clearInterval(clock);
+  }, [screen]);
+  const related = useMemo(() => bookings.filter((booking) => booking.eventId === event.id), [bookings, event.id]);
+  const counts = useMemo(() => organizerEventCounts([event], related).get(event.id), [event, related]);
+  const { places: reserved, checkedIn } = counts;
+  const publicEvent = publicEventStatuses.includes(event.status);
+  const ended = eventTime(event, event.endTime) <= now;
   const canViewSummary = ended && (publicEvent || (event.status === 'Archived' && event.archivedFrom !== 'Cancelled'));
-  const attendees = related.flatMap((booking) => booking.tickets.map((ticket) => ({
-    ...ticket, status: booking.status === 'Cancelled' ? 'Cancelled' : ticket.checkedInAt ? 'Checked in' : 'Reserved',
-  })));
-  const cancelled = attendees.filter((ticket) => ticket.status === 'Cancelled').length;
-  const checkedIn = attendees.filter((ticket) => ticket.status === 'Checked in').length;
+  const cancelled = related.reduce((total, booking) => total + (booking.status === 'Cancelled' ? booking.tickets.length : 0), 0);
   const attendanceRate = reserved ? Math.round(100 * checkedIn / reserved) : null;
-  const attendeeCounts = [['Reserved', reserved], ['Checked in', checkedIn], ['Cancelled', cancelled]];
-  const visibleAttendees = attendees.filter((ticket) => (attendeeStatus === 'All' || ticket.status === attendeeStatus)
-    && ticket.name.toLowerCase().includes(attendeeQuery.trim().toLowerCase()));
 
   function back() {
-    if (screen === 'summary') { setMessage(''); setScreen(summaryBack); }
-    else if (screen === initialScreen) onBack();
-    else { setMessage(''); setScreen('overview'); }
+    if (updatingRef.current) return;
+    setMessage('');
+    if (screen === 'checkIn' && scannerFromAttendance) {
+      setScannerFromAttendance(false);
+      setScreen('attendees');
+    } else if (screen === initialScreen || screen === 'overview') onBack();
+    else setScreen('overview');
   }
-  useOrganizerBack(back);
+  useOrganizerBack(back, screen !== 'checkIn');
 
-  function update(status) {
+  async function update(status) {
+    if (updatingRef.current) return;
+    updatingRef.current = true;
+    setUpdating(true);
+    setMessage('');
     try {
-      onStatus(event.id, status, reason);
+      await onStatus(event.id, status, reason);
       setReason('');
       setMessage('');
       setScreen('overview');
     } catch (failure) {
       setMessage(failure.message);
+    } finally {
+      updatingRef.current = false;
+      setUpdating(false);
     }
   }
 
@@ -485,10 +325,9 @@ function ManageEvent({ event, bookings, initialScreen, onBack, onEdit, onStatus,
     }
   }
 
-  function openSummary() {
-    setSummaryBack(screen);
+  function openTool(next) {
     setMessage('');
-    setScreen('summary');
+    setScreen(next);
   }
 
   if (screen === 'summary') {
@@ -517,156 +356,55 @@ function ManageEvent({ event, bookings, initialScreen, onBack, onEdit, onStatus,
         <AttendanceDashboard
           events={[event]}
           bookings={bookings}
-          initialEventId={event.id}
+          view={attendanceView} onViewChange={setAttendanceView}
           onCheckIn={onScan}
-          onOpenScanner={() => setScreen('checkIn')}
+          onOpenScanner={() => { setScannerFromAttendance(true); openTool('checkIn'); }}
         />
       </Page>
     );
   }
 
-  if (screen === 'checkIn') {
-    return (
-      <Page title="Ticket check-in" onBack={back}>
-        <View style={styles.gatePanel}>
-          <Ionicons name="qr-code-outline" size={28} color="#006451" />
-          <Text accessibilityRole="header" style={styles.sectionTitle}>{event.title}</Text>
-          <Text style={styles.rowTitle}>{checkedIn} of {reserved} checked in</Text>
-          <AttendanceProgress value={attendanceRate ?? 0} />
-          <TicketScanner onScan={scan} onError={setMessage} />
-        </View>
-        {!!message && (
-          <Text accessibilityLiveRegion="polite" accessibilityRole={message === 'Ticket checked in.' ? undefined : 'alert'}
-            style={[styles.feedback, message === 'Ticket checked in.' ? styles.green : styles.red]}>{message}</Text>
-        )}
-        <Section title="Enter a code manually">
-          <Field label="Ticket code" value={code} autoCapitalize="none" autoCorrect={false} onChangeText={setCode}
-            onSubmitEditing={() => { if (code.trim()) scan(code); }} maxLength={80} />
-          <Action label="Validate ticket" disabled={!code.trim()} onPress={() => scan(code)} />
-        </Section>
-      </Page>
-    );
-  }
+  if (screen === 'checkIn') return <OrganizerTicketCheckIn event={event} counts={counts} onBack={back} onValidate={onScan} />;
 
-  if (screen === 'close' || screen === 'cancel') {
+  const confirmation = eventConfirmations[screen];
+  if (confirmation) {
     const cancelling = screen === 'cancel';
     return (
-      <Page title={cancelling ? 'Cancel event' : 'Close registration'} onBack={back}>
+      <Page title={confirmation.title} onBack={back}>
         <Panel title={event.title}>
-          <Copy>{cancelling ? `${reserved} reserved places. Cancelling invalidates tickets and adds an in-app update for affected attendees.` : 'New reservations will close. Existing tickets stay valid for check-in.'}</Copy>
+          <Copy>{cancelling ? `${reserved} reserved places. Cancelling invalidates tickets and adds an in-app update for affected attendees.` : confirmation.text}</Copy>
         </Panel>
-        {cancelling && <Field label="Cancellation reason" value={reason} onChangeText={setReason} multiline maxLength={240} />}
+        {cancelling && <Field label="Cancellation reason" value={reason} onChangeText={setReason} editable={!updating} multiline maxLength={240} />}
         {!!message && <Copy alert>{message}</Copy>}
-        <Action label={cancelling ? 'Confirm event cancellation' : 'Confirm close registration'}
-          disabled={cancelling && !reason.trim()} onPress={() => update(cancelling ? 'Cancelled' : 'Closed')} />
+        <Action label={cancelling ? 'Confirm event cancellation' : `Confirm ${confirmation.title.toLowerCase()}`}
+          variant={screen === 'close' ? 'primary' : 'danger'} disabled={cancelling && !reason.trim()} loading={updating}
+          onPress={() => update(confirmation.status)} />
       </Page>
     );
   }
 
-  function scan(value) {
-    try {
-      onScan(event.id, value.trim());
-      setCode('');
-      setMessage('Ticket checked in.');
-    } catch (failure) {
-      setMessage(failure.message);
-    }
-  }
-
-  return (
-    <Page title={event.title} onBack={onBack}>
-      <Image source={event.image} style={styles.eventCover} />
-      <View style={styles.section}>
-        <StatusPill label={organizerEventStatus(event)} />
-        <Copy>{event.date} · {event.venue}</Copy>
-        {!!event.reason && <Copy>{event.reason}</Copy>}
-        {publicEvent && !ended && <Copy>{remaining === null ? 'Unlimited capacity' : `${remaining} places remaining`}</Copy>}
-      </View>
-      {event.status !== 'Draft' && <AttendanceCounts items={attendeeCounts} />}
-      {canViewSummary && <Action label="Event summary" icon="stats-chart-outline" onPress={openSummary} />}
-      <NavRow label="Attendance dashboard" icon="people-outline" onPress={() => setScreen('attendees')} />
-      {(!ended || !publicEvent) && ['Draft', 'Published', 'Rescheduled', 'Closed'].includes(event.status) && <NavRow label="Edit event" icon="create-outline" onPress={onEdit} />}
-      {event.status === 'Draft' && <Action label="Publish event" onPress={() => update('Published')} />}
-      {publicEvent && !ended && (
-        <>
-          <Action label="Open ticket check-in" icon="qr-code-outline" onPress={() => { setMessage(''); setScreen('checkIn'); }} />
-          <Panel title="Registration">
-            {event.status !== 'Closed' && <Action label="Close registration" secondary onPress={() => { setMessage(''); setScreen('close'); }} />}
-            <Action label="Cancel event" secondary onPress={() => { setMessage(''); setScreen('cancel'); }} />
-          </Panel>
-        </>
-      )}
-      {(event.status === 'Cancelled' || (publicEvent && ended)) && <Action label="Archive event" secondary onPress={() => update('Archived')} />}
-      {!!message && <Copy alert={message !== 'Ticket checked in.'}>{message}</Copy>}
-    </Page>
-  );
-}
-
-function AttendanceProgress({ value }) {
-  return (
-    <View accessibilityRole="progressbar" accessibilityLabel="Attendance rate" accessibilityValue={{ min: 0, max: 100, now: value }}
-      style={styles.attendanceTrack}>
-      <View style={[styles.attendanceFill, { width: `${value}%` }]} />
-    </View>
-  );
+  return <OrganizerEventHub event={event} related={related} counts={counts} now={now}
+    section={section} onSection={setSection} canViewSummary={canViewSummary} message={message} publishing={updating}
+    onBack={back} onEdit={onEdit} onOpen={openTool} onPublish={() => update('Published')} />;
 }
 
 const styles = StyleSheet.create({
-  workspace: { flex: 1, backgroundColor: colors.white },
-  hero: { backgroundColor: '#2B206F', borderRadius: 24, padding: 22, gap: 12, overflow: 'hidden' },
-  heroOrbit: { position: 'absolute', width: 224, height: 224, borderRadius: 112, top: -101, right: -68,
-    borderWidth: 24, borderColor: '#FFFFFF16' },
-  heroTitle: { color: colors.white, fontSize: 28, fontFamily: headingFont },
-  heroAction: { minHeight: 46, alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 7,
-    paddingHorizontal: 13, marginTop: 6, backgroundColor: colors.white, borderRadius: 12 },
-  heroActionLabel: { color: colors.purpleDark, fontSize: 14, fontWeight: '700' },
-  featuredEvent: { borderRadius: 17, overflow: 'hidden', borderWidth: 1, borderColor: colors.line },
-  featuredImage: { width: '100%', height: 128 },
-  featuredBody: { padding: 13, flexDirection: 'row', alignItems: 'center', gap: 10 },
-  section: { gap: 9 },
+  workspace: { flex: 1, minWidth: 0, minHeight: 0, backgroundColor: colors.surface },
+  section: { gap: spacing.xs },
   sectionTitle: { color: colors.ink, fontFamily: headingFont, fontSize: 18 },
-  eventRow: {
-    flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 82, paddingVertical: 10,
-    borderBottomWidth: 1, borderColor: colors.line,
-  },
-  thumbnail: { width: 65, height: 65, borderRadius: 12, backgroundColor: colors.lavender },
-  rowBody: { flex: 1, gap: 4, minWidth: 0 },
   rowTitle: { color: colors.ink, fontSize: 15, fontWeight: '700' },
   rowMeta: { color: colors.muted, fontSize: 13, lineHeight: 18 },
-  statusText: { color: colors.purpleDark, fontSize: 12, fontWeight: '700' },
-  eventMeta: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', columnGap: 7, rowGap: 4 },
-  listingFact: { flexDirection: 'row', alignItems: 'center', gap: 7 },
-  statusPill: { alignSelf: 'flex-start', borderRadius: 20, paddingHorizontal: 8, paddingVertical: 4, fontSize: 12, fontWeight: '700' },
-  purple: { backgroundColor: colors.lavender, color: colors.purpleDark },
-  green: { backgroundColor: colors.mint, color: '#006451' },
-  amber: { backgroundColor: '#FFF0DA', color: '#844500' },
-  red: { backgroundColor: '#FCE9EC', color: '#9E2638' },
-  neutral: { backgroundColor: '#F0EFF4', color: '#55576C' },
-  navRow: { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 48, paddingVertical: 8, borderBottomWidth: 1, borderColor: colors.line },
-  toolIcon: { width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.lavender },
-  gateIcon: { backgroundColor: colors.mint },
-  gateRow: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 70, padding: 12,
-    borderRadius: 14, borderWidth: 1, borderColor: '#DCEFEA', backgroundColor: '#F6FCFA' },
-  gatePanel: { backgroundColor: '#F1FBF8', borderRadius: 18, padding: 16, gap: 12 },
-  feedback: { padding: 13, borderRadius: 12, fontSize: 15, fontWeight: '700' },
   pressed: { backgroundColor: colors.lavender },
-  tabBar: { flexDirection: 'row', padding: 7, gap: 3, borderTopWidth: 1, borderColor: colors.line },
-  tab: { flex: 1, minHeight: 52, alignItems: 'center', justifyContent: 'center', gap: 3, borderRadius: 12 },
-  activeTab: { backgroundColor: colors.lavender },
-  tabLabel: { color: colors.muted, fontSize: 11, fontWeight: '700' },
-  activeLabel: { color: colors.purpleDark },
-  metrics: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-  metric: { flexGrow: 1, flexBasis: '45%', gap: 3, borderRadius: 15, backgroundColor: '#F5F4FF', padding: 13 },
+  tabBar: { flexDirection: 'row', flexShrink: 0, padding: spacing.xxs, backgroundColor: colors.surface },
+  tab: { flex: 1, minWidth: 0, minHeight: touchTargets.standard, alignItems: 'center',
+    justifyContent: 'center', gap: spacing.xxs, paddingVertical: spacing.xxs },
+  tabFocus: Platform.OS === 'web'
+    ? { outlineColor: colors.primary, outlineWidth: 2, outlineStyle: 'solid', outlineOffset: -2 }
+    : {},
+  tabLabel: { ...typography.caption, alignSelf: 'stretch', textAlign: 'center', color: colors.textSecondary },
   countStrip: { flexDirection: 'row', flexWrap: 'wrap', borderWidth: 1, borderColor: colors.line, borderRadius: 15, padding: 12, gap: 8 },
   stripItem: { flexGrow: 1, flexBasis: '28%', minWidth: 65, gap: 3 },
   count: { color: colors.purpleDark, fontFamily: headingFont, fontSize: 24 },
   summaryCard: { backgroundColor: '#F5F4FF', padding: 20, borderRadius: 20, gap: 8 },
   summaryRate: { color: colors.purpleDark, fontFamily: headingFont, fontSize: 48 },
-  attendanceTrack: { height: 8, borderRadius: 4, overflow: 'hidden', backgroundColor: '#D5D9E7' },
-  attendanceFill: { height: '100%', borderRadius: 4, backgroundColor: '#08795F' },
-  progress: { gap: 8 },
-  progressTrack: { flexDirection: 'row', gap: 6 },
-  progressSegment: { flex: 1, height: 4, borderRadius: 2, backgroundColor: colors.line },
-  progressActive: { backgroundColor: colors.action },
-  eventCover: { width: '100%', height: 150, borderRadius: 16, backgroundColor: colors.lavender },
 });

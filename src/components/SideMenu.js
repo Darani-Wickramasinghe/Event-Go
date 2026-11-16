@@ -1,5 +1,5 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Image, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, headingFont } from '../theme';
 
@@ -11,7 +11,7 @@ const personalTools = [
   { name: 'settings', label: 'Settings', icon: 'settings-outline' },
 ];
 
-export default function SideMenu({ profile, signedIn, onOpen, onClose, onProfile, onSignOut }) {
+export default function SideMenu({ profile, picture, signedIn, tools = personalTools, onOpen, onClose, onProfile, onSignOut }) {
   const name = signedIn && profile.name.trim() ? profile.name.trim() : 'Guest';
   const initials = name.split(/\s+/).slice(0, 2).map((word) => Array.from(word)[0]).join('').toUpperCase();
 
@@ -24,9 +24,10 @@ export default function SideMenu({ profile, signedIn, onOpen, onClose, onProfile
             <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
               <View style={styles.header}>
                 <View style={styles.avatar}>
-                  {signedIn
-                    ? <Text style={styles.initials}>{initials}</Text>
-                    : <Ionicons name="person-outline" size={25} color={colors.purpleDark} />}
+                  {signedIn && picture ? <Image source={{ uri: picture }} style={styles.avatarImage} /> : (
+                    signedIn ? <Text style={styles.initials}>{initials}</Text>
+                      : <Ionicons name="person-outline" size={25} color={colors.purpleDark} />
+                  )}
                 </View>
                 <Pressable accessibilityRole="button" accessibilityLabel="Close menu" onPress={onClose}
                   style={({ pressed }) => [styles.close, pressed && styles.pressed]}>
@@ -38,8 +39,8 @@ export default function SideMenu({ profile, signedIn, onOpen, onClose, onProfile
                 {signedIn && !!profile.city && <Text style={styles.city}>{profile.city}</Text>}
               </View>
               <View style={styles.links}>
-                <MenuRow label="My Profile" icon="person-outline" onPress={onProfile} />
-                {personalTools.map(({ name: screen, label, icon }) => (
+                {onProfile && <MenuRow label="My Profile" icon="person-outline" onPress={onProfile} />}
+                {tools.map(({ name: screen, label, icon }) => (
                   <MenuRow key={screen} label={label} icon={icon} onPress={() => onOpen(screen)} />
                 ))}
               </View>
@@ -73,6 +74,7 @@ const styles = StyleSheet.create({
   content: { paddingHorizontal: 18, paddingTop: 22, paddingBottom: 18 },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', paddingLeft: 9 },
   avatar: { width: 56, height: 56, borderRadius: 28, backgroundColor: colors.lavender, alignItems: 'center', justifyContent: 'center' },
+  avatarImage: { width: 56, height: 56, borderRadius: 28 },
   initials: { color: colors.purpleDark, fontSize: 21, fontFamily: headingFont },
   close: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
   identity: { paddingHorizontal: 9, marginTop: 10, gap: 4 },

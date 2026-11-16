@@ -29,11 +29,18 @@ export function registrationStatus(event, bookings, now = Date.now()) {
   return '';
 }
 
-export function makeReservation(event, bookings, names, id, codes, now = Date.now()) {
+export function ownsReservation(booking, profile) {
+  return !booking.attendeeEmail || booking.attendeeEmail === profile?.email?.trim().toLowerCase();
+}
+
+export function makeReservation(event, bookings, names, id, codes, now = Date.now(), profile) {
   const existing = bookings.find((item) => item.id === id);
-  if (existing) return existing;
+  if (existing) {
+    if (!ownsReservation(existing, profile)) throw new Error('Start a new reservation and try again.');
+    return existing;
+  }
   if (event.price !== 0) throw new Error('This event only offers a paid ticket preview.');
-  if (bookings.some((item) => item.eventId === event.id && item.status === 'Confirmed')) {
+  if (bookings.some((item) => item.eventId === event.id && item.status === 'Confirmed' && ownsReservation(item, profile))) {
     throw new Error('You already have a reservation for this event.');
   }
   const unavailable = registrationStatus(event, bookings, now);
@@ -47,6 +54,7 @@ export function makeReservation(event, bookings, names, id, codes, now = Date.no
   }
   return {
     id, eventId: event.id, status: 'Confirmed', createdAt: now,
+    ...(profile?.email && { attendeeEmail: profile.email.trim().toLowerCase() }),
     tickets: names.map((name, index) => ({ name: name.trim(), code: codes[index], checkedInAt: null })),
   };
 }
@@ -62,10 +70,16 @@ export function scanTicket(event, bookings, code, now = Date.now()) {
   const booking = bookings.find((item) => item.tickets.some((ticket) => ticket.code === code));
   if (!booking) throw new Error('Ticket code was not found.');
   if (booking.eventId !== event.id) throw new Error('This ticket is for another event.');
-  if (booking.status === 'Cancelled' || event.status === 'Cancelled') throw new Error('This ticket was cancelled.');
+  if (booking.status === 'Cancelled' || event.status === 'Cancelled' || event.archivedFrom === 'Cancelled') {
+    throw new Error('This ticket was cancelled.');
+  }
+  if (booking.status !== 'Confirmed') throw new Error('Only confirmed reservations can be checked in.');
   const ticket = booking.tickets.find((item) => item.code === code);
   if (ticket.checkedInAt) throw new Error('This ticket has already been used.');
   if (eventTime(event, event.endTime) <= now) throw new Error('This event has ended.');
+  if (!['Published', 'Rescheduled', 'Closed'].includes(event.status)) {
+    throw new Error('Check-in is unavailable for this event.');
+  }
   return { ...booking, tickets: booking.tickets.map((item) => item.code === code ? { ...item, checkedInAt: now } : item) };
 }
 

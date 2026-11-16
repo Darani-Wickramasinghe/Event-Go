@@ -1,17 +1,19 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useState } from 'react';
-import { Image, Linking, Platform, Pressable, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
+import { Image, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { BookmarkButton } from '../components/EventCard';
 import EventWeather from '../components/EventWeather';
 import { Action, Copy } from '../components/FlowUI';
 import { formatPrice } from '../data/events';
 import { eventTime } from '../data/reservations';
+import { shareEventLink } from '../services/shareEvent';
 import { colors, headingFont } from '../theme';
 
 const dayFormat = new Intl.DateTimeFormat('en-LK', { weekday: 'long', month: 'long', day: 'numeric', timeZone: 'Asia/Colombo' });
 const timeFormat = new Intl.DateTimeFormat('en-LK', { hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'Asia/Colombo' });
 
-export default function EventDetailsScreen({ event, saved, onSave, onBack, remaining, unavailable, booking, attendeeCount, onBook, onReport }) {
+export default function EventDetailsScreen({ event, saved, onSave, onBack, remaining, unavailable, booking, attendeeCount, onBook, onReport,
+  organizerProfile, onOpenOrganizer }) {
   const [message, setMessage] = useState('');
   const [expanded, setExpanded] = useState(false);
   const destination = encodeURIComponent(`${event.venue}, ${event.city}, Sri Lanka`);
@@ -19,7 +21,8 @@ export default function EventDetailsScreen({ event, saved, onSave, onBack, remai
   const bookingLabel = booking ? 'View my tickets' : event.price ? 'Preview tickets' : 'Reserve free places';
   const start = eventTime(event);
   const schedule = `${timeFormat.format(start)}–${timeFormat.format(eventTime(event, event.endTime))} · Sri Lanka time`;
-  const initials = event.organizer.trim().split(/\s+/).slice(0, 2).map((word) => word[0]).join('').toUpperCase();
+  const organization = organizerProfile?.organization ?? event.organizer;
+  const initials = organization.trim().split(/\s+/).slice(0, 2).map((word) => word[0]).join('').toUpperCase();
   const longDescription = event.description.length > 170;
   const description = longDescription && !expanded
     ? `${event.description.slice(0, 170).replace(/\s+\S*$/, '')}…`
@@ -27,17 +30,8 @@ export default function EventDetailsScreen({ event, saved, onSave, onBack, remai
 
   async function shareEvent() {
     try {
-      if (Platform.OS === 'web') {
-        const url = new URL(window.location.href);
-        url.searchParams.set('event', event.id);
-        if (navigator.share) await navigator.share({ title: event.title, url: url.toString() });
-        else if (navigator.clipboard) {
-          await navigator.clipboard.writeText(url.toString());
-          setMessage('Event link copied.');
-        } else setMessage(url.toString());
-      } else {
-        await Share.share({ message: `${event.title} · ${event.date}\n${event.venue}, ${event.city}\neventora://event/${event.id}` });
-      }
+      const feedback = await shareEventLink(event);
+      if (feedback) setMessage(feedback);
     } catch (failure) {
       if (failure.name !== 'AbortError') setMessage('The event link could not be shared.');
     }
@@ -85,11 +79,17 @@ export default function EventDetailsScreen({ event, saved, onSave, onBack, remai
           </View>
           <EventWeather event={event} />
           <View style={styles.organizer}>
-            <View style={styles.avatar}><Text style={styles.initials}>{initials}</Text></View>
-            <View style={styles.titleBlock}>
-              <Text style={styles.meta}>Organized by</Text>
-              <Text style={styles.organizerName}>{event.organizer}</Text>
-            </View>
+            <Pressable accessibilityRole="button" accessibilityLabel={`View organizer profile for ${organization}`}
+              onPress={onOpenOrganizer} style={styles.organizerLink}>
+              {organizerProfile?.picture
+                ? <Image source={{ uri: organizerProfile.picture }} style={styles.avatar} />
+                : <View style={styles.avatar}><Text style={styles.initials}>{initials}</Text></View>}
+              <View style={styles.titleBlock}>
+                <Text style={styles.meta}>Organized by</Text>
+                <Text style={styles.organizerName}>{organization}</Text>
+                <Text style={styles.profileLink}>View profile</Text>
+              </View>
+            </Pressable>
             <TextLink label="Report event" icon="flag-outline" color="#B42332" onPress={onReport} />
           </View>
         </View>
@@ -167,6 +167,8 @@ const styles = StyleSheet.create({
   link: { minHeight: 44, alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 6 },
   linkText: { fontSize: 14, fontWeight: '700' },
   organizer: { flexDirection: 'row', alignItems: 'center', gap: 12, borderTopWidth: 1, borderColor: colors.line, paddingTop: 17 },
+  organizerLink: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: 12 },
+  profileLink: { color: colors.purpleDark, fontSize: 13, fontWeight: '600' },
   avatar: { width: 45, height: 45, borderRadius: 23, backgroundColor: colors.lavender, alignItems: 'center', justifyContent: 'center' },
   initials: { color: colors.purpleDark, fontSize: 15, fontWeight: '800' },
   organizerName: { color: colors.ink, fontSize: 15, fontWeight: '700' },

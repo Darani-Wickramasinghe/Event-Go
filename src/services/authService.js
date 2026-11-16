@@ -31,6 +31,11 @@ export function validateRegistrationInput({ name, email, city, role, organizatio
   return true;
 }
 
+function savedProfiles(store) {
+  const email = store.profile?.email?.trim().toLowerCase();
+  return email ? { ...store.profiles, [email]: store.profile } : store.profiles ?? {};
+}
+
 export function registerUser(formData, currentStore) {
   const { name, email, city, role = ROLES.ATTENDEE, organization = '' } = formData;
   validateRegistrationInput({ name, email, city, role, organization });
@@ -39,6 +44,11 @@ export function registerUser(formData, currentStore) {
 
   if (currentStore.profile?.email && currentStore.profile.email.toLowerCase() === formattedEmail && currentStore.signedIn) {
     throw new Error('An account with this email is already signed in on this device.');
+  }
+
+  const profiles = savedProfiles(currentStore);
+  if (profiles[formattedEmail]) {
+    throw new Error('An account with this email already exists on this device. Log in to continue.');
   }
 
   const newProfile = {
@@ -54,27 +64,31 @@ export function registerUser(formData, currentStore) {
   return {
     signedIn: true,
     profile: newProfile,
+    profiles: { ...profiles, [formattedEmail]: newProfile },
   };
 }
 
-export function loginUser({ email }, currentStore) {
+export function loginUser({ email, role }, currentStore) {
   if (!validateEmail(email)) {
     throw new Error('Enter a valid email address.');
   }
 
   const formattedEmail = email.trim().toLowerCase();
-  const existingEmail = currentStore.profile?.email?.toLowerCase();
-
-  if (existingEmail && existingEmail !== formattedEmail) {
+  const profiles = savedProfiles(currentStore);
+  const savedProfile = profiles[formattedEmail];
+  if (!savedProfile && (Object.keys(profiles).length > 0 || !currentStore.profile?.name)) {
     throw new Error('That email does not match a profile on this device.');
   }
+  const profile = savedProfile ?? currentStore.profile;
+  if (role && profile.role && profile.role !== role) {
+    throw new Error(`Choose the ${profile.role} role to use this account.`);
+  }
+  const signedInProfile = { ...profile, email: formattedEmail };
 
   return {
     signedIn: true,
-    profile: {
-      ...currentStore.profile,
-      email: formattedEmail,
-    },
+    profile: signedInProfile,
+    profiles: { ...profiles, [formattedEmail]: signedInProfile },
   };
 }
 
@@ -102,9 +116,12 @@ export function canManageEvent(userProfile, role, event) {
   if (role === ROLES.ADMIN) return true;
   if (role === ROLES.ORGANIZER) {
     if (!event) return true; // Can create new event
+    const eventEmail = event.organizerEmail?.trim().toLowerCase();
+    if (eventEmail) return eventEmail === userProfile.email?.trim().toLowerCase();
+
     const userOrg = (userProfile.organization || userProfile.name || '').trim().toLowerCase();
     const eventOrg = (event.organizer || '').trim().toLowerCase();
-    return userOrg === eventOrg || !eventOrg;
+    return !!eventOrg && userOrg === eventOrg;
   }
   return false;
 }

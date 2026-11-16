@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import EventFiltersSheet from '../components/EventFiltersSheet';
 import EventoraLogo from '../components/EventoraLogo';
+import PurpleHeader from '../components/PurpleHeader';
 import { defaultFilters, filterEvents } from '../data/eventFilters';
 import { categories } from '../data/events';
 import { eventTime } from '../data/reservations';
@@ -35,9 +36,7 @@ export default function DiscoveryScreen({ home, openExplore, renderEvent, openNo
 
   return (
     <ScrollView key={home ? 'home' : 'explore'} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
-      <View style={styles.hero}>
-        <View pointerEvents="none" style={styles.orbit} />
-        <View pointerEvents="none" style={styles.innerOrbit} />
+      <PurpleHeader>
         <View style={styles.top}>
           <View style={styles.brand}>
             <Pressable accessibilityRole="button" accessibilityLabel="Open menu" onPress={openMenu} style={styles.headerButton}>
@@ -94,7 +93,7 @@ export default function DiscoveryScreen({ home, openExplore, renderEvent, openNo
             </Pressable>
           </View>
         </View>
-      </View>
+      </PurpleHeader>
 
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipRail} contentContainerStyle={styles.chips}>
         {categories.map(({ label, icon, color }) => {
@@ -201,18 +200,6 @@ export default function DiscoveryScreen({ home, openExplore, renderEvent, openNo
 }
 
 const styles = StyleSheet.create({
-  hero: {
-    backgroundColor: colors.purple, borderBottomLeftRadius: 29, borderBottomRightRadius: 29,
-    paddingHorizontal: 20, paddingTop: 16, paddingBottom: 34, overflow: 'hidden',
-  },
-  orbit: {
-    position: 'absolute', width: 235, height: 235, borderRadius: 118, borderWidth: 1,
-    borderColor: '#786BF1', right: -56, top: -96,
-  },
-  innerOrbit: {
-    position: 'absolute', width: 177, height: 177, borderRadius: 89, borderWidth: 1,
-    borderColor: '#786BF1', right: -27, top: -67,
-  },
   top: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   brand: { flexDirection: 'row', alignItems: 'center', gap: 9 },
   headerButton: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
