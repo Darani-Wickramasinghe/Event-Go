@@ -1,4 +1,4 @@
-import { BOOKING_STATUS, EVENT_STATUS, NOTICE_TYPE } from './contract';
+import { BOOKING_STATUS, EVENT_STATUS, NOTICE_TYPE } from './contract.js';
 
 const HOUR = 60 * 60 * 1000;
 

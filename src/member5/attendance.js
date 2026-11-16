@@ -1,4 +1,4 @@
-import { CHECK_RESULT, EVENT_STATUS, TICKET_STATUS } from './contract';
+import { CHECK_RESULT, EVENT_STATUS, TICKET_STATUS } from './contract.js';
 
 // Decide what a scan means. Does NOT change anything - just answers.
 export function validateTicket(tickets, token, scanningEventId) {

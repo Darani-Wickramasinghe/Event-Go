@@ -1,7 +1,7 @@
-import { attendanceLabel, attendanceSummary, checkInTicket, validateTicket } from '../attendance';
-import { CHECK_RESULT, EVENT_STATUS } from '../contract';
-import { MOCK_NOW, mockBookings, mockEvents, mockTickets } from '../mockData';
-import { buildEventChangeNotices, buildReminders, findConflicts, markRead, unreadCount } from '../notifications';
+import { attendanceLabel, attendanceSummary, checkInTicket, validateTicket } from '../attendance.js';
+import { CHECK_RESULT, EVENT_STATUS } from '../contract.js';
+import { MOCK_NOW, mockBookings, mockEvents, mockTickets } from '../mockData.js';
+import { buildEventChangeNotices, buildReminders, findConflicts, markRead, unreadCount } from '../notifications.js';
 
 const tech = mockEvents.find((item) => item.id === 'e1');
 

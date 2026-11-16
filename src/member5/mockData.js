@@ -1,4 +1,4 @@
-import { BOOKING_STATUS, EVENT_STATUS, TICKET_STATUS } from './contract';
+import { BOOKING_STATUS, EVENT_STATUS, TICKET_STATUS } from './contract.js';
 
 // Fixed "today" so demos and tests behave the same every time.
 export const MOCK_NOW = new Date('2026-11-20T09:00:00Z');
