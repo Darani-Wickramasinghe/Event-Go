@@ -2,3 +2,8 @@ node_modules/
 .expo/
 dist/
 *.log
+.idea/
+
+.env
+.env.*
+!.env.example

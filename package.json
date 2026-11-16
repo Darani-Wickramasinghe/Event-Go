@@ -23,6 +23,7 @@
     "expo-location": "~19.0.8",
     "expo-sharing": "~14.0.8",
     "expo-splash-screen": "~31.0.13",
+    "firebase": "^13.3.0",
     "jsqr": "^1.4.0",
     "leaflet": "^1.9.4",
     "qrcode-generator": "^2.0.4",
