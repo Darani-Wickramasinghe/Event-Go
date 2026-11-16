@@ -2,7 +2,7 @@
  * Member 3: Authentication and Core Business Logic Unit Tests
  */
 
-import { registerUser, loginUser, logoutUser, isAttendee, isOrganizer, canManageEvent } from '../services/authService.js';
+import { accountFormDefaults, registerUser, loginUser, logoutUser, isAttendee, isOrganizer, canManageEvent } from '../services/authService.js';
 import { createOrganizerEvent, updateOrganizerEvent, transitionEventStatus } from '../services/eventBusinessService.js';
 import { registerForFreeEvent, cancelRegistration, bookingLimit } from '../services/registrationService.js';
 import { validateAndCheckInTicket, getTicketStatusInfo } from '../services/ticketService.js';
@@ -153,6 +153,19 @@ export async function runAllTests() {
   // Test logout
   const logoutResult = logoutUser(loginResult);
   assert(logoutResult.signedIn === false, 'Logout sets signedIn state to false');
+  const previousAttendee = { ...logoutResult.profile, interests: ['IT'], bio: 'Attendee bio', reminders: true, organization: 'Old details' };
+  assert(Object.values(accountFormDefaults(previousAttendee, 'organizer', true)).every((value) => value === ''),
+    'Organizer sign-up should not be prefilled with a signed-out attendee profile');
+  assert(accountFormDefaults(previousAttendee, 'organizer', false).email === '' &&
+    accountFormDefaults(previousAttendee, 'attendee', false).email === previousAttendee.email,
+    'Only the matching role can prefill the last login email');
+  const separateOrganizer = registerUser(
+    { name: 'New organizer', email: 'new-organizer@example.com', city: 'Colombo', role: 'organizer', organization: 'New organization' },
+    { ...logoutResult, profile: previousAttendee }
+  );
+  assert(!separateOrganizer.profile.interests.length && !separateOrganizer.profile.reminders && !separateOrganizer.profile.bio &&
+    separateOrganizer.profiles[previousAttendee.email].bio === 'Attendee bio',
+    'New accounts start with independent preferences while prior account details are retained');
 
   // Test role checks
   assert(isAttendee('attendee') === true, 'Role check correctly identifies attendee');

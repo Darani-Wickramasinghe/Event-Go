@@ -36,6 +36,20 @@ function savedProfiles(store) {
   return email ? { ...store.profiles, [email]: store.profile } : store.profiles ?? {};
 }
 
+function isUnfinishedProfileForRole(profile, role) {
+  return !!profile?.name && !profile.email && (profile.role === role || (!profile.role && role === ROLES.ATTENDEE));
+}
+
+export function accountFormDefaults(profile, role, signUp) {
+  const unfinished = signUp && isUnfinishedProfileForRole(profile, role) ? profile : null;
+  return {
+    name: unfinished?.name ?? '',
+    email: !signUp && profile?.role === role ? profile.email ?? '' : '',
+    city: unfinished?.city ?? '',
+    organization: role === ROLES.ORGANIZER ? unfinished?.organization ?? '' : '',
+  };
+}
+
 export function registerUser(formData, currentStore) {
   const { name, email, city, role = ROLES.ATTENDEE, organization = '' } = formData;
   validateRegistrationInput({ name, email, city, role, organization });
@@ -51,14 +65,17 @@ export function registerUser(formData, currentStore) {
     throw new Error('An account with this email already exists on this device. Log in to continue.');
   }
 
+  const unfinished = isUnfinishedProfileForRole(currentStore.profile, role) ? currentStore.profile : null;
   const newProfile = {
-    ...currentStore.profile,
+    reminders: false,
+    reminderHours: 24,
+    ...unfinished,
+    interests: unfinished?.interests ?? [],
     name: name.trim(),
     email: formattedEmail,
     city: city.trim(),
-    organization: role === ROLES.ORGANIZER ? organization.trim() : (currentStore.profile.organization || ''),
-    role: role,
-    interests: currentStore.profile.interests || [],
+    organization: role === ROLES.ORGANIZER ? organization.trim() : '',
+    role,
   };
 
   return {

@@ -2,12 +2,14 @@ import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import EventoraLogo from '../components/EventoraLogo';
 import { Action, Copy, Field, Page } from '../components/FlowUI';
+import { accountFormDefaults } from '../services/authService';
 
 export default function AccountScreen({ signUp, role, profile, onContinue, onSwitch, onBack }) {
-  const [name, setName] = useState(profile.name);
-  const [email, setEmail] = useState(profile.email ?? '');
-  const [city, setCity] = useState(profile.name ? profile.city : '');
-  const [organization, setOrganization] = useState(profile.organization ?? '');
+  const [initial] = useState(() => accountFormDefaults(profile, role, signUp));
+  const [name, setName] = useState(initial.name);
+  const [email, setEmail] = useState(initial.email);
+  const [city, setCity] = useState(initial.city);
+  const [organization, setOrganization] = useState(initial.organization);
   const [error, setError] = useState('');
   const title = signUp ? 'Sign up' : 'Log in';
   const organizer = role === 'organizer';
@@ -31,9 +33,9 @@ export default function AccountScreen({ signUp, role, profile, onContinue, onSwi
         <EventoraLogo style={styles.logo} />
       </View>
       <Copy>{organizer ? 'Event organizer' : 'Attendee'} · {signUp ? 'Create a demo profile on this device. All fields are required.' : 'Use the email from your demo profile on this device.'}</Copy>
-      {signUp && <Field label="Full name" value={name} onChangeText={setName} autoCapitalize="words" autoComplete="name" maxLength={70} />}
+      {signUp && <Field label="Full name" value={name} onChangeText={setName} autoCapitalize="words" autoComplete="off" maxLength={70} />}
       <Field label="Email address" value={email} onChangeText={setEmail} autoCapitalize="none" autoCorrect={false}
-        keyboardType="email-address" autoComplete="email" placeholder="name@example.com" maxLength={120} onSubmitEditing={submit} />
+        keyboardType="email-address" autoComplete={signUp ? 'off' : 'email'} placeholder="name@example.com" maxLength={120} onSubmitEditing={submit} />
       {signUp && <Field label="Home city" value={city} onChangeText={setCity} autoCapitalize="words" placeholder="e.g. Kelaniya" maxLength={50} />}
       {signUp && organizer && <Field label="Organization name" value={organization} onChangeText={setOrganization} autoCapitalize="words" maxLength={80} />}
       {!!error && <Copy alert>{error}</Copy>}

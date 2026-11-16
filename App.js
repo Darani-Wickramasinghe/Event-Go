@@ -231,7 +231,7 @@ function Eventora({ fontsReady }) {
       case 'signIn':
       case 'signUp': {
         const signUp = page.name === 'signUp';
-        return <AccountScreen key={page.name} signUp={signUp} role={role} profile={data.profile} onBack={goBack}
+        return <AccountScreen key={`${role}-${page.name}`} signUp={signUp} role={role} profile={data.profile} onBack={goBack}
           onSwitch={() => replace(signUp ? 'signIn' : 'signUp', { next: page.next, entry: page.entry })}
           onContinue={({ name, email, city, organization }) => {
             update((current) => {
