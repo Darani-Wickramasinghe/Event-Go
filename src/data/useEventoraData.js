@@ -1,7 +1,5 @@
 import { randomUUID } from 'expo-crypto';
 import { useEffect, useMemo, useState } from 'react';
-import { createRegistration, cancelRegistration as cancelRepoRegistration } from '../repositories/registrationRepository.js';
-import { checkInTicket } from '../repositories/ticketRepository.js';
 import { events as seedEvents, eventCoverSource, formatEventDate } from './events.js';
 import { useDemoStore } from './useDemoStore.js';
 import { registerForFreeEvent, cancelRegistration } from '../services/registrationService.js';
@@ -127,8 +125,6 @@ export function useEventoraData() {
       );
       if (isDuplicateRequest || current.bookings.some((item) => item.id === booking.id)) return current;
 
-      createRegistration({ eventId, names, userId: 'demo-user', registrationId: id, codes });
-
       savedBooking = booking;
       confirmedNotice = {
         id: `confirmed-${booking.id}`,
@@ -175,8 +171,6 @@ export function useEventoraData() {
         event,
         current.bookings
       );
-
-      cancelRepoRegistration(bookingId, 'User requested cancellation');
 
       cancelNotice = {
         id: `cancelled-${bookingId}`,
@@ -307,8 +301,6 @@ export function useEventoraData() {
       const activityId = `check-in-${result.booking.id}-${result.booking.tickets.indexOf(result.ticket)}`;
       admittedTicket = result.ticket;
       updatedBooking = result.booking;
-      checkInTicket(eventId, code);
-
       return {
         ...current,
         bookings: current.bookings.map((item) => item.id === result.booking.id ? result.booking : item),

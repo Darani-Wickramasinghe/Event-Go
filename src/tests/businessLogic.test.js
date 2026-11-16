@@ -13,6 +13,7 @@ import { editableOrganizerProfile, eventOrganizerProfile, saveOrganizerProfile }
 import { buildOrganizerOverview } from '../data/organizerOverview.js';
 import { organizerEventResults } from '../data/organizerEvents.js';
 import { persistStoreChange } from '../data/persistStoreChange.js';
+import { ownsReservation } from '../data/reservations.js';
 
 let testsPassed = 0;
 let testsFailed = 0;
@@ -359,6 +360,15 @@ export async function runAllTests() {
   };
 
   const attendeeUser = { userProfile: attendeeReg.profile, signedIn: true };
+  const cloudAttendee = { ...attendeeReg.profile, uid: 'attendee-uid' };
+  assert(!ownsReservation({}, cloudAttendee), 'Bookings with no owner are excluded from personal reservations');
+  assert(ownsReservation({ userId: cloudAttendee.uid }, cloudAttendee), 'Cloud bookings can be matched by user ID without an email');
+  assert(!ownsReservation({ userId: 'other-uid', attendeeEmail: cloudAttendee.email }, cloudAttendee),
+    'A booking with a different cloud owner is excluded even if its email matches');
+  assert(ownsReservation({ userId: 'demo-user', attendeeEmail: cloudAttendee.email.toUpperCase() }, cloudAttendee),
+    'Legacy demo bookings can still be matched by email');
+  assert(!ownsReservation({ attendeeEmail: 'other@test.com' }, cloudAttendee),
+    'Legacy bookings with someone else’s email are excluded');
 
   // Test successful free registration
   const reg1 = registerForFreeEvent(

@@ -1,8 +1,30 @@
 import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import EventoraLogo from '../components/EventoraLogo';
-import { Action, Copy, Field, Page } from '../components/FlowUI';
+import { Action, Copy, Field, HeaderAction, Page } from '../components/FlowUI';
 import { accountFormDefaults } from '../services/authService';
+
+function PasswordField({ label, ...props }) {
+  const [visible, setVisible] = useState(false);
+
+  return (
+    <Field
+      {...props}
+      label={label}
+      secureTextEntry={!visible}
+      autoCapitalize="none"
+      autoCorrect={false}
+      maxLength={128}
+      trailingAction={(
+        <HeaderAction
+          label={`${visible ? 'Hide' : 'Show'} ${label.toLowerCase()}`}
+          icon={visible ? 'eye-off-outline' : 'eye-outline'}
+          onPress={() => setVisible((current) => !current)}
+        />
+      )}
+    />
+  );
+}
 
 export default function AccountScreen({ signUp, role, profile, onContinue, onSwitch, onBack }) {
   const [initial] = useState(() => accountFormDefaults(profile, role, signUp));
@@ -80,29 +102,21 @@ export default function AccountScreen({ signUp, role, profile, onContinue, onSwi
         editable={!loading}
       />
 
-      <Field
+      <PasswordField
         label="Password"
         value={password}
         onChangeText={setPassword}
-        secureTextEntry
-        autoCapitalize="none"
-        autoCorrect={false}
         placeholder="Minimum 6 characters"
-        maxLength={128}
         editable={!loading}
         onSubmitEditing={signUp ? undefined : submit}
       />
 
       {signUp && (
-        <Field
+        <PasswordField
           label="Confirm password"
           value={confirmPassword}
           onChangeText={setConfirmPassword}
-          secureTextEntry
-          autoCapitalize="none"
-          autoCorrect={false}
           placeholder="Re-enter your password"
-          maxLength={128}
           editable={!loading}
           onSubmitEditing={submit}
         />
