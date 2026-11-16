@@ -1,13 +1,17 @@
 import { randomUUID } from 'expo-crypto';
 import { useMemo } from 'react';
-import { createRegistration, cancelRegistration as cancelRepoRegistration } from '../repositories/registrationRepository.js';
-import { checkInTicket } from '../repositories/ticketRepository.js';
 import { events as seedEvents, eventCoverSource, formatEventDate } from './events.js';
 import { useDemoStore } from './useDemoStore.js';
 import { registerForFreeEvent, cancelRegistration } from '../services/registrationService.js';
-import { createOrganizerEvent, updateOrganizerEvent, transitionEventStatus } from '../services/eventBusinessService.js';
+import { createOrganizerEvent, updateOrganizerEvent, transitionEventStatus, validateEventPermissions } from '../services/eventBusinessService.js';
 import { validateAndCheckInTicket } from '../services/ticketService.js';
 import { buildEventChangeNotifications, safeMergeNotifications, DELIVERY_STATUS } from './notifications.js';
+import { recordOrganizerActivity } from './organizerNotifications.js';
+
+function bookingDetail(booking) {
+  const places = booking.tickets.length;
+  return `${booking.tickets[0]?.name || 'Attendee'} · ${places} ${places === 1 ? 'place' : 'places'}`;
+}
 
 function listEvents(data) {
   const firstDay = Date.parse(data.demoDate);
@@ -16,16 +20,18 @@ function listEvents(data) {
     const startDate = new Date(firstDay + Date.parse(event.startDate) - anchor).toISOString().slice(0, 10);
     return { ...event, startDate, day: startDate.slice(8), date: formatEventDate(startDate, event.startTime) };
   });
-  return [...sampleEvents, ...data.createdEvents].map((base) => {
+  return [...data.createdEvents].reverse().concat(sampleEvents).map((base) => {
     const event = { status: 'Published', ...base, ...data.eventEdits[base.id] };
     if (['Submitted', 'Rejected'].includes(event.status)) event.status = 'Draft';
+    const organizerProfile = data.organizerProfiles?.[event.organizerEmail?.trim().toLowerCase()];
+    if (organizerProfile) event.organizer = organizerProfile.organization;
     return { ...event, defaultImage: base.image, image: eventCoverSource(event.coverImage, base.image, event.category) };
   });
 }
 
 export function useEventoraData() {
-  const { data, ready, update, storageWarning } = useDemoStore();
-  const events = useMemo(() => listEvents(data), [data.createdEvents, data.eventEdits]);
+  const { data, ready, update, commit, storageWarning } = useDemoStore();
+  const events = useMemo(() => listEvents(data), [data.demoDate, data.createdEvents, data.eventEdits, data.organizerProfiles]);
 
   function reserve(eventId, names, id) {
     const codes = names.map(() => randomUUID());
@@ -41,11 +47,10 @@ export function useEventoraData() {
       );
       if (isDuplicateRequest || current.bookings.some((item) => item.id === booking.id)) return current;
 
-      createRegistration({ eventId, names, userId: 'demo-user', registrationId: id, codes });
-
       return {
         ...current,
         bookings: [booking, ...current.bookings],
+        organizerActivity: recordOrganizerActivity(current, event, 'reservation', `reserved-${booking.id}`, bookingDetail(booking)),
         notifications: [{
           id: `confirmed-${booking.id}`, eventId, bookingId: booking.id, title: 'Reservation confirmed',
           message: `${event.title} · ${event.date}`, read: false,
@@ -68,11 +73,10 @@ export function useEventoraData() {
         current.bookings
       );
 
-      cancelRepoRegistration(bookingId, 'User requested cancellation');
-
       return {
         ...current,
         bookings: current.bookings.map((item) => item.id === bookingId ? { ...item, status: 'Cancelled' } : item),
+        organizerActivity: recordOrganizerActivity(current, event, 'cancellation', `cancelled-${bookingId}`, bookingDetail(booking)),
         notifications: [{
           id: `cancelled-${bookingId}`, eventId: event.id, bookingId, title: 'Reservation cancelled',
           message: `${event.title} · Your places have been released.`, read: false,
@@ -84,7 +88,7 @@ export function useEventoraData() {
 
   function saveEvent(draft, eventId, publish = false) {
     const id = eventId ?? randomUUID();
-    update((current) => {
+    return commit((current) => {
       if (!current.signedIn) throw new Error('Log in to manage events.');
       const role = current.profile.role || 'organizer';
       const existingEvent = listEvents(current).find((item) => item.id === id);
@@ -131,7 +135,7 @@ export function useEventoraData() {
   }
 
   function setEventStatus(eventId, status, reason) {
-    update((current) => {
+    return commit((current) => {
       if (!current.signedIn) throw new Error('Log in to manage events.');
       const event = listEvents(current).find((item) => item.id === eventId);
       const role = current.profile.role || 'organizer';
@@ -139,22 +143,29 @@ export function useEventoraData() {
     });
   }
 
-  function checkIn(eventId, code) {
-    update((current) => {
+  async function checkIn(eventId, code) {
+    let admittedTicket;
+    await commit((current) => {
       const event = listEvents(current).find((item) => item.id === eventId);
       const role = current.profile.role || 'organizer';
+      if (current.signedIn && event) validateEventPermissions(current.profile, role, event);
       const result = validateAndCheckInTicket(
         { signedIn: current.signedIn, role },
         event,
         code,
         current.bookings
       );
+      const activityId = `check-in-${result.booking.id}-${result.booking.tickets.indexOf(result.ticket)}`;
+      admittedTicket = result.ticket;
 
-      checkInTicket(eventId, code);
-
-      return { ...current, bookings: current.bookings.map((item) => item.id === result.booking.id ? result.booking : item) };
+      return {
+        ...current,
+        bookings: current.bookings.map((item) => item.id === result.booking.id ? result.booking : item),
+        organizerActivity: recordOrganizerActivity(current, event, 'checkIn', activityId, result.attendeeName),
+      };
     });
+    return admittedTicket;
   }
 
-  return { data, ready, update, storageWarning, events, reserve, cancel, saveEvent, setEventStatus, checkIn };
+  return { data, ready, update, commit, storageWarning, events, reserve, cancel, saveEvent, setEventStatus, checkIn };
 }

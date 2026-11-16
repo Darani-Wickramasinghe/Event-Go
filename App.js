@@ -6,11 +6,12 @@ import { useEffect, useState } from 'react';
 import { BackHandler, Linking, Platform, Pressable, StatusBar, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import EventCard from './src/components/EventCard';
-import { Copy, Page } from './src/components/FlowUI';
+import { Copy, LoadingState, Page } from './src/components/FlowUI';
 import SideMenu from './src/components/SideMenu';
 import { defaultFilters } from './src/data/eventFilters';
-import { eventTime, registrationStatus, remainingPlaces, reservedPlaces } from './src/data/reservations';
+import { eventTime, ownsReservation, registrationStatus, remainingPlaces, reservedPlaces } from './src/data/reservations';
 import { useEventoraData } from './src/data/useEventoraData';
+import { eventOrganizerProfile } from './src/data/organizerProfiles';
 import { registerUser, loginUser, logoutUser } from './src/services/authService';
 import AccountScreen from './src/screens/AccountScreen';
 import CalendarScreen from './src/screens/CalendarScreen';
@@ -22,6 +23,7 @@ import NavigationMapScreen from './src/screens/NavigationMapScreen';
 import NotificationsScreen from './src/screens/NotificationsScreen';
 import { ReportScreen } from './src/screens/OperationsScreen';
 import { OrganizerScreen } from './src/screens/OrganizerScreen';
+import OrganizerProfileScreen from './src/screens/OrganizerProfileScreen';
 import { ProfileScreen, SettingsScreen } from './src/screens/ProfileScreen';
 import ReservationScreen from './src/screens/ReservationScreen';
 import RoleScreen from './src/screens/RoleScreen';
@@ -65,10 +67,11 @@ function Eventora({ fontsReady }) {
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState('All');
   const [filters, setFilters] = useState(defaultFilters);
-  const { data, ready, update, storageWarning, events, reserve, cancel, saveEvent, setEventStatus, checkIn } = useEventoraData();
+  const { data, ready, update, commit, storageWarning, events, reserve, cancel, saveEvent, setEventStatus, checkIn } = useEventoraData();
   const page = pages.at(-1);
+  const organizerWorkspace = role === 'organizer' && !page;
   const event = events.find((item) => item.id === page?.eventId);
-  const bookings = data.signedIn ? data.bookings : [];
+  const bookings = data.signedIn ? data.bookings.filter((booking) => ownsReservation(booking, data.profile)) : [];
   const publicEvents = events.filter((item) => ['Published', 'Rescheduled', 'Closed'].includes(item.status))
     .map((item) => ({ ...item, available: !registrationStatus(item, data.bookings) }));
   const nextEvent = publicEvents.filter((item) => eventTime(item, item.endTime) > Date.now()
@@ -192,11 +195,11 @@ function Eventora({ fontsReady }) {
   }
 
   function renderPage() {
-    if (!ready) return <Page title="Eventora"><Copy>Loading your events…</Copy></Page>;
+    if (!ready) return <Page title="Eventora"><LoadingState label="Loading your events…" /></Page>;
     if (!role) return <RoleScreen onSelect={selectRole} />;
-    if (role === 'organizer' && !page) {
+    if (organizerWorkspace) {
       return <OrganizerScreen data={data} events={events} onBack={switchRole} onSave={saveEvent} onStatus={setEventStatus} onScan={checkIn}
-        onOpenSettings={() => open('settings')} />;
+        onSignOut={signOut} update={update} commit={commit} storageWarning={storageWarning} />;
     }
     switch (page?.name) {
       case 'event': {
@@ -215,17 +218,20 @@ function Eventora({ fontsReady }) {
           saved={data.savedIds.includes(event.id)} onSave={() => toggleSave(event.id)}
           remaining={remainingPlaces(event, data.bookings)} unavailable={registrationStatus(event, data.bookings)}
           attendeeCount={reservedPlaces(event, data.bookings)}
+          organizerProfile={eventOrganizerProfile(data, event)} onOpenOrganizer={() => open('organizerProfile', { eventId: event.id })}
           booking={booking} onBook={book} onReport={() => open('report', { eventId: event.id })}
           onNavigate={() => open('navigate', { eventId: event.id })} />;
       }
-      case 'navigate': {
-        const navEvent = events.find((item) => item.id === page?.eventId);
-        return <NavigationMapScreen event={navEvent} onBack={goBack} />;
-      }
+      case 'navigate':
+        return <NavigationMapScreen event={event} onBack={goBack} />;
+      case 'organizerProfile':
+        return event
+          ? <OrganizerProfileScreen profile={eventOrganizerProfile(data, event)} onBack={goBack} />
+          : <Page title="Organizer profile" onBack={goBack}><Copy>Organizer profile unavailable.</Copy></Page>;
       case 'signIn':
       case 'signUp': {
         const signUp = page.name === 'signUp';
-        return <AccountScreen key={page.name} signUp={signUp} role={role} profile={data.profile} onBack={goBack}
+        return <AccountScreen key={`${role}-${page.name}`} signUp={signUp} role={role} profile={data.profile} onBack={goBack}
           onSwitch={() => replace(signUp ? 'signIn' : 'signUp', { next: page.next, entry: page.entry })}
           onContinue={({ name, email, city, organization }) => {
             update((current) => {
@@ -233,7 +239,7 @@ function Eventora({ fontsReady }) {
                 const result = registerUser({ name, email, city, role, organization }, current);
                 return { ...current, ...result };
               } else {
-                const result = loginUser({ email }, current);
+                const result = loginUser({ email, role }, current);
                 return { ...current, ...result };
               }
             });
@@ -247,7 +253,8 @@ function Eventora({ fontsReady }) {
           onConfirm={(names) => replace('ticket', { bookingId: reserve(event.id, names, page.requestId), confirmed: true })} />;
       case 'ticket': {
         const booking = bookings.find((item) => item.id === page.bookingId);
-        const bookedEvent = events.find((item) => item.id === booking.eventId);
+        const bookedEvent = events.find((item) => item.id === booking?.eventId);
+        if (!booking || !bookedEvent) return <Page title="Reservation" onBack={goBack}><Copy>Reservation unavailable.</Copy></Page>;
         return <TicketScreen key={booking.id} event={bookedEvent} booking={booking} confirmed={page.confirmed}
           onCancel={cancel} onBack={goBack} onEvent={() => openEvent(bookedEvent)}
           onCalendar={() => open('calendar', { date: bookedEvent.startDate })} />;
@@ -269,7 +276,8 @@ function Eventora({ fontsReady }) {
           onSave={(profile) => { update((current) => ({ ...current, profile })); goBack(); }}
           onSignOut={signOut} />;
       case 'notifications':
-        return <NotificationsScreen data={data} events={events} onBack={goBack}
+        return <NotificationsScreen data={{ ...data, bookings, notifications: data.notifications.filter((notice) =>
+          !notice.bookingId || bookings.some((booking) => booking.id === notice.bookingId)) }} events={events} onBack={goBack}
           onSettings={() => open('settings')} onRead={markNoticesRead}
           onOpen={({ bookingId, eventId }) => bookingId ? openTicket(bookingId) : open('event', { eventId })} />;
       case 'report':
@@ -304,14 +312,15 @@ function Eventora({ fontsReady }) {
     <View style={styles.background}>
       <StatusBar barStyle={!role || purpleTop ? 'light-content' : 'dark-content'} />
       <View style={styles.shell}>
-        <SafeAreaView edges={role ? ['top'] : ['top', 'bottom']} style={[styles.safeTop, purpleTop && styles.purpleTop, !role && styles.welcomeSafeArea]}>
+        <SafeAreaView edges={organizerWorkspace ? ['top', 'right', 'bottom', 'left'] : role ? ['top'] : ['top', 'bottom']}
+          style={[styles.safeTop, purpleTop && styles.purpleTop, !role && styles.welcomeSafeArea]}>
           <View style={styles.content}>
             {!!storageWarning && <Copy alert>{storageWarning}</Copy>}
             {renderPage()}
           </View>
         </SafeAreaView>
         {page || role !== 'attendee' ? (
-          role && <SafeAreaView edges={['bottom']} />
+          role && !organizerWorkspace && <SafeAreaView edges={['bottom']} />
         ) : (
           <SafeAreaView edges={['bottom']} style={styles.navigation}>
             {tabs.map(({ label, icon }) => {
@@ -325,10 +334,10 @@ function Eventora({ fontsReady }) {
                   onPress={() => setTab(label)}
                   style={styles.tab}
                 >
-                  <View style={[styles.tabIcon, active && styles.activeIcon]}>
+                  <View style={styles.tabIcon}>
                     <Ionicons name={active ? icon : `${icon}-outline`} color={active ? colors.purpleDark : colors.muted} size={21} />
                   </View>
-                  <Text style={[styles.tabLabel, active && styles.activeLabel]}>{label}</Text>
+                  <Text style={styles.tabLabel}>{label}</Text>
                 </Pressable>
               );
             })}
@@ -348,17 +357,15 @@ function Eventora({ fontsReady }) {
 const styles = StyleSheet.create({
   background: { flex: 1, backgroundColor: '#EFEDFA', alignItems: 'center' },
   shell: { flex: 1, width: '100%', maxWidth: 520, backgroundColor: colors.white },
-  safeTop: { flex: 1, backgroundColor: colors.white },
+  safeTop: { flex: 1, minHeight: 0, backgroundColor: colors.white },
   purpleTop: { backgroundColor: colors.purple },
   welcomeSafeArea: { backgroundColor: '#121031' },
-  content: { flex: 1, backgroundColor: colors.white },
+  content: { flex: 1, minHeight: 0, backgroundColor: colors.white },
   navigation: {
     flexDirection: 'row', borderTopWidth: 1, borderColor: colors.line,
     backgroundColor: colors.white, paddingHorizontal: 10,
   },
   tab: { flex: 1, minHeight: 61, alignItems: 'center', justifyContent: 'center', gap: 2 },
-  tabIcon: { width: 43, height: 29, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
-  activeIcon: { backgroundColor: colors.lavender },
+  tabIcon: { width: 43, height: 29, alignItems: 'center', justifyContent: 'center' },
   tabLabel: { color: colors.muted, fontSize: 11, fontWeight: '600' },
-  activeLabel: { color: colors.purpleDark, fontWeight: '800' },
 });
