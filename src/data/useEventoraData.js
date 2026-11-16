@@ -6,8 +6,7 @@ import { registerForFreeEvent, cancelRegistration } from '../services/registrati
 import { createOrganizerEvent, updateOrganizerEvent, transitionEventStatus, validateEventPermissions } from '../services/eventBusinessService.js';
 import { validateAndCheckInTicket } from '../services/ticketService.js';
 import { buildEventChangeNotifications, safeMergeNotifications, DELIVERY_STATUS } from './notifications.js';
-import { recordOrganizerActivity } from './organizerNotifications.js';
-import { auth, isFirebaseConfigured } from '../config/firebase.js';
+import { isFirebaseConfigured } from '../config/firebase.js';
 import {
   saveEventToFirestore,
   updateEventStatusInFirestore,
@@ -16,16 +15,25 @@ import {
 import {
   saveBookingToFirestore,
   cancelBookingInFirestore,
-  updateTicketCheckInInFirestore,
+  checkInTicketInFirestore,
   subscribeToCloudBookings,
 } from '../services/bookingFirestoreService.js';
 import {
   saveNotificationToFirestore,
 } from '../services/notificationFirestoreService.js';
 
-function bookingDetail(booking) {
-  const places = booking.tickets.length;
-  return `${booking.tickets[0]?.name || 'Attendee'} · ${places} ${places === 1 ? 'place' : 'places'}`;
+function saveBookingLocally(current, booking, notice) {
+  const index = current.bookings.findIndex(({ id }) => id === booking.id);
+  const bookings = [...current.bookings];
+  if (index === -1) {
+    bookings.unshift(booking);
+  } else if (!(bookings[index].updatedAt > booking.updatedAt)) {
+    bookings[index] = booking;
+  }
+  const notifications = notice && !current.notifications.some(({ id }) => id === notice.id)
+    ? [notice, ...current.notifications]
+    : current.notifications;
+  return { ...current, bookings, notifications };
 }
 
 function listEvents(data, cloudEvents = []) {
@@ -63,7 +71,7 @@ function listEvents(data, cloudEvents = []) {
   });
 }
 
-export function useEventoraData() {
+export function useEventoraData(firebaseUserId) {
   const { data, ready, update, commit, storageWarning } = useDemoStore();
   const [cloudEvents, setCloudEvents] = useState([]);
 
@@ -80,11 +88,10 @@ export function useEventoraData() {
 
   // Subscribe to real-time bookings from Cloud Firestore
   useEffect(() => {
-    if (!ready || !isFirebaseConfigured) return;
-    const userId = auth?.currentUser?.uid || data.profile?.uid;
+    if (!ready || !data.signedIn || !firebaseUserId || firebaseUserId !== data.profile?.uid) return;
     const role = data.profile?.role || 'attendee';
 
-    const unsubscribe = subscribeToCloudBookings(userId, role, (cloudBookings) => {
+    const unsubscribe = subscribeToCloudBookings(firebaseUserId, role, (cloudBookings) => {
       if (cloudBookings && cloudBookings.length > 0) {
         update((current) => {
           const merged = [...current.bookings];
@@ -101,32 +108,31 @@ export function useEventoraData() {
       }
     });
     return () => unsubscribe();
-  }, [ready, data.profile?.uid, data.profile?.role, data.signedIn]);
+  }, [ready, firebaseUserId, data.profile?.uid, data.profile?.role, data.signedIn]);
 
   const events = useMemo(
     () => listEvents(data, cloudEvents),
     [data.demoDate, data.createdEvents, data.eventEdits, data.organizerProfiles, cloudEvents]
   );
 
-  function reserve(eventId, names, id) {
+  async function reserve(eventId, names, id) {
     const codes = names.map(() => randomUUID());
-    let savedBooking = null;
-    let confirmedNotice = null;
+    const now = Date.now();
 
-    update((current) => {
-      const event = listEvents(current, cloudEvents).find((item) => item.id === eventId);
-      const { booking, isDuplicateRequest } = registerForFreeEvent(
+    function validate(current, event) {
+      return registerForFreeEvent(
         { userProfile: current.profile, signedIn: current.signedIn },
         event,
         names,
         id,
         current.bookings,
-        codes
-      );
-      if (isDuplicateRequest || current.bookings.some((item) => item.id === booking.id)) return current;
+        codes,
+        now
+      ).booking;
+    }
 
-      savedBooking = booking;
-      confirmedNotice = {
+    function confirmation(event, booking) {
+      return {
         id: `confirmed-${booking.id}`,
         eventId,
         bookingId: booking.id,
@@ -134,45 +140,38 @@ export function useEventoraData() {
         message: `${event.title} · ${event.date}`,
         read: false,
         deliveryStatus: DELIVERY_STATUS.DELIVERED,
-        deliveredAt: new Date().toISOString(),
+        deliveredAt: new Date(booking.createdAt ?? now).toISOString(),
       };
+    }
 
-      return {
-        ...current,
-        bookings: [booking, ...current.bookings],
-        organizerActivity: recordOrganizerActivity(current, event, 'reservation', `reserved-${booking.id}`, bookingDetail(booking)),
-        notifications: [confirmedNotice, ...current.notifications],
-      };
-    });
-
-    if (savedBooking && isFirebaseConfigured) {
-      const userId = auth?.currentUser?.uid || data.profile?.uid || 'demo-user';
-      saveBookingToFirestore(savedBooking, userId).catch((err) => {
-        console.warn('[Firebase] Could not save booking to Firestore:', err.message);
+    if (isFirebaseConfigured) {
+      const event = events.find((item) => item.id === eventId);
+      const booking = await saveBookingToFirestore(validate(data, event), data.profile);
+      const notice = confirmation(event, booking);
+      update((current) => saveBookingLocally(current, booking, notice));
+      void saveNotificationToFirestore(notice, booking.userId);
+    } else {
+      await commit((current) => {
+        const event = listEvents(current, cloudEvents).find((item) => item.id === eventId);
+        const booking = validate(current, event);
+        return saveBookingLocally(current, booking, confirmation(event, booking));
       });
-      if (confirmedNotice) {
-        saveNotificationToFirestore(confirmedNotice, userId);
-      }
     }
 
     return id;
   }
 
-  function cancel(bookingId) {
-    let cancelNotice = null;
+  async function cancel(bookingId) {
+    function getReservation(current) {
+      const booking = current.bookings.find(({ id }) => id === bookingId);
+      const event = listEvents(current, cloudEvents).find(({ id }) => id === booking?.eventId);
+      if (!booking || !event) throw new Error('Reservation not found.');
+      const session = { userProfile: current.profile, signedIn: current.signedIn, role: current.profile.role };
+      return { booking, event, session };
+    }
 
-    update((current) => {
-      const booking = current.bookings.find((item) => item.id === bookingId);
-      const event = listEvents(current, cloudEvents).find((item) => item.id === booking?.eventId);
-
-      cancelRegistration(
-        { userProfile: current.profile, signedIn: current.signedIn, role: current.profile.role },
-        bookingId,
-        event,
-        current.bookings
-      );
-
-      cancelNotice = {
+    function cancellation(event, booking) {
+      return {
         id: `cancelled-${bookingId}`,
         eventId: event.id,
         bookingId,
@@ -180,25 +179,24 @@ export function useEventoraData() {
         message: `${event.title} · Your places have been released.`,
         read: false,
         deliveryStatus: DELIVERY_STATUS.DELIVERED,
-        deliveredAt: new Date().toISOString(),
+        deliveredAt: new Date(booking.cancelledAt).toISOString(),
       };
-
-      return {
-        ...current,
-        bookings: current.bookings.map((item) => item.id === bookingId ? { ...item, status: 'Cancelled' } : item),
-        organizerActivity: recordOrganizerActivity(current, event, 'cancellation', `cancelled-${bookingId}`, bookingDetail(booking)),
-        notifications: [cancelNotice, ...current.notifications],
-      };
-    });
+    }
 
     if (isFirebaseConfigured) {
-      cancelBookingInFirestore(bookingId).catch((err) => {
-        console.warn('[Firebase] Could not cancel booking in Firestore:', err.message);
+      const { event, session } = getReservation(data);
+      const booking = await cancelBookingInFirestore(bookingId, event, session);
+      const notice = cancellation(event, booking);
+      update((current) => saveBookingLocally(current, booking, notice));
+      void saveNotificationToFirestore(notice, booking.userId);
+    } else {
+      await commit((current) => {
+        const { booking, event, session } = getReservation(current);
+        const cancelledAt = Date.now();
+        cancelRegistration(session, bookingId, event, current.bookings, cancelledAt);
+        const cancelled = { ...booking, status: 'Cancelled', cancelledAt };
+        return saveBookingLocally(current, cancelled, cancellation(event, cancelled));
       });
-      if (cancelNotice) {
-        const userId = auth?.currentUser?.uid || data.profile?.uid || 'demo-user';
-        saveNotificationToFirestore(cancelNotice, userId);
-      }
     }
   }
 
@@ -285,36 +283,30 @@ export function useEventoraData() {
   }
 
   async function checkIn(eventId, code) {
-    let admittedTicket;
-    let updatedBooking = null;
-
-    await commit((current) => {
+    function getCheckIn(current) {
       const event = listEvents(current, cloudEvents).find((item) => item.id === eventId);
-      const role = current.profile.role || 'organizer';
-      if (current.signedIn && event) validateEventPermissions(current.profile, role, event);
-      const result = validateAndCheckInTicket(
-        { signedIn: current.signedIn, role },
-        event,
-        code,
-        current.bookings
-      );
-      const activityId = `check-in-${result.booking.id}-${result.booking.tickets.indexOf(result.ticket)}`;
-      admittedTicket = result.ticket;
-      updatedBooking = result.booking;
-      return {
-        ...current,
-        bookings: current.bookings.map((item) => item.id === result.booking.id ? result.booking : item),
-        organizerActivity: recordOrganizerActivity(current, event, 'checkIn', activityId, result.attendeeName),
-      };
-    });
-
-    if (updatedBooking && isFirebaseConfigured) {
-      updateTicketCheckInInFirestore(updatedBooking).catch((err) => {
-        console.warn('[Firebase] Could not sync ticket check-in to Firestore:', err.message);
-      });
+      const { signedIn, profile } = current;
+      if (!signedIn) throw new Error('Log in to check in attendees.');
+      if (!event) throw new Error('Event not found.');
+      validateEventPermissions(profile, profile.role, event);
+      return { event, session: { signedIn, role: profile.role, userProfile: profile } };
     }
 
-    return admittedTicket;
+    if (isFirebaseConfigured) {
+      const { event, session } = getCheckIn(data);
+      const result = await checkInTicketInFirestore(event, code, session);
+      update((current) => saveBookingLocally(current, result.booking));
+      return result.ticket;
+    }
+
+    let ticket;
+    await commit((current) => {
+      const { event, session } = getCheckIn(current);
+      const result = validateAndCheckInTicket(session, event, code, current.bookings);
+      ticket = result.ticket;
+      return saveBookingLocally(current, result.booking);
+    });
+    return ticket;
   }
 
   return { data, ready, update, commit, storageWarning, events, reserve, cancel, saveEvent, setEventStatus, checkIn };

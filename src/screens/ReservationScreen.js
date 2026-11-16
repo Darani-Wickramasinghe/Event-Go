@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Action, Choices, Copy, Field, Page, Panel } from '../components/FlowUI';
 import { formatPrice } from '../data/events';
 import { bookingLimit, eventTime } from '../data/reservations';
@@ -10,6 +10,8 @@ export default function ReservationScreen({ event, events, bookings, remaining, 
   const [type, setType] = useState('General');
   const [step, setStep] = useState('details');
   const [error, setError] = useState('');
+  const [confirming, setConfirming] = useState(false);
+  const pending = useRef(false);
   const types = { General: event.price, Premium: event.price * 1.5 };
   const available = paid ? bookingLimit : Math.min(remaining ?? bookingLimit, bookingLimit);
   const conflict = bookings.some((booking) => {
@@ -29,16 +31,24 @@ export default function ReservationScreen({ event, events, bookings, remaining, 
     setStep('review');
   }
 
-  function confirm() {
+  async function confirm() {
+    if (pending.current) return;
+    pending.current = true;
+    setConfirming(true);
+    setError('');
     try {
-      onConfirm(names.slice(0, Number(quantity)));
+      await onConfirm(names.slice(0, Number(quantity)));
     } catch (failure) {
       setError(failure.message);
+    } finally {
+      pending.current = false;
+      setConfirming(false);
     }
   }
 
   return (
-    <Page title={paid ? 'Ticket preview' : step === 'review' ? 'Review reservation' : 'Reserve free places'} onBack={step === 'details' ? onBack : () => { setStep('details'); setError(''); }}>
+    <Page title={paid ? 'Ticket preview' : step === 'review' ? 'Review reservation' : 'Reserve free places'}
+      onBack={step === 'details' ? onBack : () => { if (!pending.current) { setStep('details'); setError(''); } }}>
       <Panel title={event.title}>
         <Copy>{event.date} · Sri Lanka time</Copy>
         <Copy>{event.venue}, {event.city}</Copy>
@@ -73,10 +83,11 @@ export default function ReservationScreen({ event, events, bookings, remaining, 
                 {names.slice(0, Number(quantity)).map((name, index) => <Copy key={index}>{name.trim()}</Copy>)}
                 {conflict && <Copy alert>This event overlaps another confirmed reservation.</Copy>}
               </Panel>
-              <Action label="Confirm reservation" icon="checkmark" onPress={confirm} />
+              <Action label="Confirm reservation" icon="checkmark" loading={confirming} onPress={confirm} />
             </>
           )}
-          <Action label={paid ? 'Return to event' : 'Edit reservation'} secondary onPress={paid ? onBack : () => { setStep('details'); setError(''); }} />
+          <Action label={paid ? 'Return to event' : 'Edit reservation'} secondary disabled={confirming}
+            onPress={paid ? onBack : () => { setStep('details'); setError(''); }} />
         </>
       )}
       {!!error && <Copy alert>{error}</Copy>}

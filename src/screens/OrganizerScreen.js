@@ -57,7 +57,8 @@ export function OrganizerScreen({ data, events, onSave, onStatus, onScan, onBack
   const myEvents = useMemo(() => {
     if (!data.signedIn) return [];
     const createdEventIds = new Set(data.createdEvents.map((event) => event.id));
-    return getOrganizerEvents(events.filter((event) => createdEventIds.has(event.id)), data.profile);
+    const candidates = events.filter((event) => event.organizerEmail || createdEventIds.has(event.id));
+    return getOrganizerEvents(candidates, data.profile);
   }, [data.createdEvents, data.profile, data.signedIn, events]);
   const organizerProfile = editableOrganizerProfile(data);
   const organization = organizerProfile.organization || data.organizerApplication?.organization;

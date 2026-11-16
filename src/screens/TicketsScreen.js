@@ -1,5 +1,5 @@
 import qrGenerator from 'qrcode-generator';
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { Action, Choices, Copy, Page, Panel } from '../components/FlowUI';
 import { agendaEntries } from '../data/agenda';
@@ -39,17 +39,26 @@ export function ReservationCard({ entry, onOpen }) {
 export function TicketScreen({ booking, event, confirmed, onBack, onEvent, onCancel, onCalendar }) {
   const [index, setIndex] = useState(0);
   const [cancelling, setCancelling] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const pending = useRef(false);
   const [error, setError] = useState('');
   const ticket = booking.tickets[index];
   const status = bookingStatus(event, booking);
   const blocked = cancellationReason(event, booking);
 
-  function cancel() {
+  async function cancel() {
+    if (pending.current) return;
+    pending.current = true;
+    setSubmitting(true);
+    setError('');
     try {
-      onCancel(booking.id);
+      await onCancel(booking.id);
       setCancelling(false);
     } catch (failure) {
       setError(failure.message);
+    } finally {
+      pending.current = false;
+      setSubmitting(false);
     }
   }
 
@@ -67,7 +76,7 @@ export function TicketScreen({ booking, event, confirmed, onBack, onEvent, onCan
         {['Confirmed', 'Rescheduled', 'Checked in'].includes(status) && !ticket.checkedInAt && (
           <>
             <TicketCode code={ticket.code} />
-            <Copy>Demo ticket code · {ticket.code}</Copy>
+            <Copy>Ticket code · {ticket.code}</Copy>
           </>
         )}
         {(ticket.checkedInAt || status === 'Cancelled' || status === 'Past registration' || status === 'Attended') && (
@@ -80,8 +89,8 @@ export function TicketScreen({ booking, event, confirmed, onBack, onEvent, onCan
         cancelling ? (
           <Panel title="Cancel this reservation?">
             <Copy>All places in this reservation will be released and its tickets will expire.</Copy>
-            <Action label="Confirm cancellation" onPress={cancel} />
-            <Action label="Keep reservation" secondary onPress={() => setCancelling(false)} />
+            <Action label="Confirm cancellation" loading={submitting} onPress={cancel} />
+            <Action label="Keep reservation" secondary disabled={submitting} onPress={() => setCancelling(false)} />
           </Panel>
         ) : (
           <>

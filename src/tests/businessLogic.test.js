@@ -8,7 +8,7 @@ import { registerForFreeEvent, cancelRegistration, bookingLimit } from '../servi
 import { validateAndCheckInTicket, getTicketStatusInfo } from '../services/ticketService.js';
 import { calculatePaidPreview, attemptPaidCheckout } from '../services/paidPreviewService.js';
 import { calculateAttendanceStats, filterAttendees, getEventAttendees, getOrganizerEvents } from '../data/attendance.js';
-import { organizerInbox, organizerPreferences, recordOrganizerActivity, updateOrganizerPreferences } from '../data/organizerNotifications.js';
+import { organizerInbox, organizerPreferences, updateOrganizerPreferences } from '../data/organizerNotifications.js';
 import { editableOrganizerProfile, eventOrganizerProfile, saveOrganizerProfile } from '../data/organizerProfiles.js';
 import { buildOrganizerOverview } from '../data/organizerOverview.js';
 import { organizerEventResults } from '../data/organizerEvents.js';
@@ -257,30 +257,34 @@ export async function runAllTests() {
   assertThrows(() => saveOrganizerProfile(attendeeState, publicDraft), 'Sign in as an organizer',
     'Attendee cannot edit organizer contact details');
 
-  let activityStore = { ...organizerReg, createdEvents: [firstEvent, secondEvent] };
-  for (const [event, type, id] of [
-    [firstEvent, 'reservation', 'reserved-one'],
-    [firstEvent, 'reservation', 'reserved-one'],
-    [firstEvent, 'cancellation', 'cancelled-one'],
-    [firstEvent, 'checkIn', 'check-in-two'],
-    [secondEvent, 'reservation', 'reserved-other'],
-  ]) {
-    activityStore.organizerActivity = recordOrganizerActivity(activityStore, event, type, id, 'Attendee');
-  }
-  const owned = getOrganizerEvents(activityStore.createdEvents, organizerReg.profile);
+  let activityStore = {
+    ...organizerReg,
+    createdEvents: [],
+    organizerActivity: [{ id: 'reserved-one', type: 'reservation', eventId: firstEvent.id, createdAt: 1 }],
+    bookings: [
+      { id: 'one', eventId: firstEvent.id, status: 'Cancelled', createdAt: 1, cancelledAt: new Date(3).toISOString(),
+        tickets: [{ name: 'Attendee' }] },
+      { id: 'two', eventId: firstEvent.id, status: 'Confirmed', createdAt: 2,
+        tickets: [{ name: 'Guest', checkedInAt: 4 }] },
+      { id: 'other', eventId: secondEvent.id, status: 'Confirmed', createdAt: 5, tickets: [{ name: 'Other guest' }] },
+    ],
+  };
+  const owned = getOrganizerEvents([firstEvent, secondEvent], organizerReg.profile);
   const inbox = () => organizerInbox(activityStore, owned, organizerPreferences(activityStore));
-  assert(inbox().map(({ id }) => id).join(',') === 'check-in-two,cancelled-one,reserved-one',
-    'Organizer inbox includes their own activity, newest first and without duplicates');
+  assert(inbox().map(({ id }) => id).join(',') === 'check-in-two-0,cancelled-one,reserved-two,reserved-one',
+    'Organizer inbox derives activity from synced bookings, scoped to owned events and deduplicated against local history');
+  assert(inbox()[0].detail === 'Guest' && inbox().at(-1).detail === 'Attendee · 1 place',
+    'Booking alerts show the attendee and number of reserved places');
   activityStore = updateOrganizerPreferences(activityStore, (preferences) => ({
     ...preferences, cancellation: false, readIds: ['reserved-one'],
   }));
-  assert(inbox().length === 2 && inbox()[1].read, 'Alert types and read state are controlled independently');
+  assert(inbox().length === 3 && inbox().at(-1).read, 'Alert types and read state are controlled independently');
   activityStore = updateOrganizerPreferences(activityStore, (preferences) => ({ ...preferences, muted: true }));
   assert(inbox().length === 0, 'Muting hides alerts and unread counts');
   const otherState = { ...activityStore, profile: anotherOrganizer };
   assert(!organizerPreferences(otherState).muted, 'Organizer preferences do not carry over to another account');
   activityStore = updateOrganizerPreferences(activityStore, (preferences) => ({ ...preferences, muted: false }));
-  assert(inbox().length === 2 && inbox()[1].read, 'Unmuting restores filtered history and read state');
+  assert(inbox().length === 3 && inbox().at(-1).read, 'Unmuting restores filtered history and read state');
 
   const dashboardNow = Date.parse('2026-11-25T11:30:00+05:30');
   const scheduled = [
