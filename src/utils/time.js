@@ -1,3 +1,4 @@
+// Converts and formats event and forecast times.
 // Time helpers for the weather planner.
 // Open-Meteo hourly data is requested in GMT, so all comparisons are done
 // in UTC milliseconds. The venue timezone is only used for DISPLAY.

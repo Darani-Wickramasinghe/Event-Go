@@ -1,3 +1,4 @@
+// Lists an attendee's notices and reminders and opens the related event or booking.
 import { useEffect, useState } from 'react';
 import { Action, Choices, Copy, Page, Panel } from '../components/FlowUI';
 import { buildReminders } from '../data/notifications';

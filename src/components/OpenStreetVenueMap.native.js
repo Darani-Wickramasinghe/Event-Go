@@ -1,3 +1,4 @@
+// Runs the organizer's Leaflet venue picker inside a native WebView.
 import { useEffect, useRef, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { WebView } from 'react-native-webview';

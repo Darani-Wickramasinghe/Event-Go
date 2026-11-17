@@ -1,3 +1,4 @@
+// Reads and changes event records in the repository's in-memory store.
 import { getDatabaseCache, mutateDatabaseState } from '../config/database.js';
 import { events as seedEvents, formatEventDate } from '../data/events.js';
 import { createEventEntity, EVENT_STATUS } from '../models/eventModel.js';

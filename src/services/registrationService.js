@@ -1,3 +1,4 @@
+// Checks who can book or cancel and applies capacity, duplicate, and deadline rules.
 /**
  * Registration Service - Member 3: Authentication & Core Business Logic
  * Handles free-event registration, capacity calculation, concurrency retries, duplicate prevention, and cancellations.
@@ -17,6 +18,7 @@ export function registerForFreeEvent({ userProfile, signedIn }, event, attendeeN
   }
 
   // Handle idempotency / safe retry: if booking with requestId already exists, return it without creating duplicate
+  // Treat the same request ID as a retry after checking who owns the booking.
   const existingBooking = existingBookings.find((b) => b.id === requestId);
   if (existingBooking) {
     if (!ownsReservation(existingBooking, userProfile)) throw new Error('Start a new reservation and try again.');
@@ -52,6 +54,7 @@ export function registerForFreeEvent({ userProfile, signedIn }, event, attendeeN
   }
 
   // Capacity check: count people (admission places), not just registration records
+  // Compare the number of requested places with the places left for the event.
   const availableCapacity = remainingPlaces(event, existingBookings);
   if (availableCapacity !== null && attendeeNames.length > availableCapacity) {
     throw new Error(`Only ${availableCapacity} places remain. Choose a smaller quantity.`);

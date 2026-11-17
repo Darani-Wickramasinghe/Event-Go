@@ -1,3 +1,4 @@
+// Reads and updates bookings in the repository's in-memory store.
 import { getDatabaseCache, mutateDatabaseState } from '../config/database.js';
 import { createRegistrationEntity, MAX_BOOKING_LIMIT, REGISTRATION_STATUS } from '../models/registrationModel.js';
 import { createTicketEntity } from '../models/ticketModel.js';

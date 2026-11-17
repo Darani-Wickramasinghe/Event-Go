@@ -1,3 +1,4 @@
+// Sets the read and write permissions enforced by Firestore.
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {

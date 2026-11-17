@@ -1,3 +1,4 @@
+// Guides organizers through event details, scheduling, admission, and publishing.
 import { useEffect, useRef, useState } from 'react';
 import { Keyboard, Platform, StyleSheet, Text, View } from 'react-native';
 import { Action, Choices, Copy, Field, HeaderAction, Page, Panel, SectionHeading } from '../components/FlowUI';
@@ -16,6 +17,7 @@ import VenuePickerScreen from './VenuePickerScreen';
 
 const steps = ['Basic details', 'Schedule', 'Tickets', 'Review'];
 
+// Copy existing event values into editable fields or create defaults for a new event.
 function initialDraft(event) {
   return {
     title: event.title ?? '', city: event.city ?? '', venue: event.venue ?? '',
@@ -69,6 +71,7 @@ export default function OrganizerEventEditor({ event, bookings, knownVenues, onS
   }
   useOrganizerBack(previous);
 
+  // Check the current step before moving to the next form section.
   function next() {
     try {
       if (!step && (!draft.title.trim() || !draft.description.trim())) throw new Error('Enter an event title and description.');
@@ -86,6 +89,7 @@ export default function OrganizerEventEditor({ event, bookings, knownVenues, onS
     }
   }
 
+  // Send the draft to the organizer workspace with the chosen save or publish mode.
   async function save(mode) {
     if (savingRef.current) return;
     savingRef.current = true;
@@ -101,6 +105,7 @@ export default function OrganizerEventEditor({ event, bookings, knownVenues, onS
     }
   }
 
+  // Open the map picker and put the selected coordinates back into the form.
   if (pickingVenue) return <VenuePickerScreen venue={draft.venue} city={draft.city} point={point} knownVenues={knownVenues}
     onBack={previous} onSelect={(location) => {
       setDraft((current) => ({ ...current, ...location }));

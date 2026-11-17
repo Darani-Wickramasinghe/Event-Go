@@ -1,3 +1,4 @@
+// Runs the business logic suite when the project test command starts.
 globalThis.require = (path) => ({ uri: path });
 
 async function main() {

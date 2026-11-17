@@ -1,3 +1,4 @@
+// Calculates straight-line distance from GPS coordinates and sorts nearby events.
 // Straight-line (haversine) distance helpers for event cards.
 
 const EARTH_RADIUS_KM = 6371;

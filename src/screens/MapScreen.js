@@ -1,3 +1,4 @@
+// Shows events on a map and lets attendees use a city or their GPS position.
 import * as Location from 'expo-location';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Action, Copy, Field, Page } from '../components/FlowUI';
@@ -25,11 +26,13 @@ export default function MapScreen({ events, renderEvent, onOpen, city: homeCity 
     return () => { active.current = false; subscription.current?.remove(); };
   }, []);
 
+  // Only show markers for events with both coordinates.
   const pins = useMemo(() => events.filter((event) => Number.isFinite(event.latitude) && Number.isFinite(event.longitude)), [events]);
   const matches = events.filter((event) => area
     ? event.latitude >= area.south && event.latitude <= area.north && event.longitude >= area.west && event.longitude <= area.east && Number.isFinite(event.latitude)
     : event.city.toLowerCase().includes(city.toLowerCase()));
 
+  // Filter events by city and center on the first matching event with coordinates.
   function searchCity() {
     const next = query.trim();
     const match = pins.find((event) => event.city.toLowerCase().includes(next.toLowerCase()));
@@ -39,6 +42,7 @@ export default function MapScreen({ events, renderEvent, onOpen, city: homeCity 
     if (match) setCenter({ latitude: match.latitude, longitude: match.longitude });
   }
 
+  // Ask for GPS access and keep the map updated as the user moves.
   async function locate() {
     setLocating(true);
     try {

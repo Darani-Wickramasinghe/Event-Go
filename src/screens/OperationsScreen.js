@@ -1,3 +1,4 @@
+// Collects a report category and optional note for an event.
 import { useState } from 'react';
 import { Action, Choices, Copy, Field, Page, Panel } from '../components/FlowUI';
 

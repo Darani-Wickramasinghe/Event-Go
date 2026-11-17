@@ -1,3 +1,4 @@
+// Validates account details and handles demo or Firebase authentication and role checks.
 /**
  * Auth Service - Member 3: Authentication & Core Business Logic
  * Handles user registration, authentication, session management, and role-based permissions.
@@ -172,6 +173,7 @@ export function logoutUser(currentStore) {
  * Firebase Cloud Registration
  * Creates auth user and stores profile in Firestore: users/{uid}
  */
+// Create a sign-in account and save the matching profile under its Firebase user ID.
 export async function registerWithFirebase(formData) {
   const { name, email, password, city, role = ROLES.ATTENDEE, organization = '', interests = [] } = formData;
   validateRegistrationInput({ name, email, city, role, organization });
@@ -223,6 +225,7 @@ export async function registerWithFirebase(formData) {
  * Firebase Cloud Login
  * Signs in with credentials and retrieves profile from Firestore: users/{uid}
  */
+// Sign in with email and password, then load the saved user profile.
 export async function loginWithFirebase({ email, password }) {
   if (!validateEmail(email)) {
     throw new Error('A valid email address is required.');
@@ -331,6 +334,7 @@ export function isAdmin(role) {
   return role === ROLES.ADMIN;
 }
 
+// Allow administrators to manage events and check ownership for organizers.
 export function canManageEvent(userProfile, role, event) {
   if (!userProfile || !role) return false;
   if (role === ROLES.ADMIN) return true;

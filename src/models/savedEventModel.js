@@ -1,3 +1,4 @@
+// Builds and validates the link between a user and a bookmarked event.
 /**
  * Saved Event Relationship Model
  */

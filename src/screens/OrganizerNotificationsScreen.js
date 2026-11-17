@@ -1,3 +1,4 @@
+// Displays organizer notifications and controls for muting or filtering alerts.
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useState } from 'react';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';

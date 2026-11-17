@@ -1,3 +1,4 @@
+// Wraps screen header content in the shared purple layout.
 import { StyleSheet, View } from 'react-native';
 import { colors } from '../theme';
 

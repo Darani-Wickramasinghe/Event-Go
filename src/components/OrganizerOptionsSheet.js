@@ -1,3 +1,4 @@
+// Shows a sheet of actions for an organizer to choose from.
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';

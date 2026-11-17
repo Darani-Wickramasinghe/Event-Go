@@ -1,3 +1,4 @@
+// Shows attendance progress as a bar and exposes its percentage to assistive technology.
 import { StyleSheet, View } from 'react-native';
 import { colors, radii } from '../theme';
 

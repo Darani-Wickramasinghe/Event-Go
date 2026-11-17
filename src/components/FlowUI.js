@@ -1,3 +1,4 @@
+// Provides shared page layouts, buttons, inputs, and status messages.
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useState } from 'react';
 import { ActivityIndicator, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
@@ -23,6 +24,7 @@ export function HeaderAction({ label, icon, onPress, badge, inverse = false }) {
   );
 }
 
+// Build a screen with an optional header, scrollable body, and footer.
 export function Page({ title, onBack, banner, leading, actions, footer, showsVerticalScrollIndicator, children }) {
   return (
     <View style={styles.page}>
@@ -42,6 +44,7 @@ export function Page({ title, onBack, banner, leading, actions, footer, showsVer
   );
 }
 
+// Render a button with the shared appearance and accessibility behavior.
 export function Action({ label, accessibilityLabel = label, icon, onPress, secondary,
   variant = secondary ? 'secondary' : 'primary', disabled, loading = false }) {
   const unavailable = !!disabled || loading;
@@ -65,6 +68,7 @@ export function Action({ label, accessibilityLabel = label, icon, onPress, secon
   );
 }
 
+// Render a labeled input with room for a hint and validation message.
 export function Field({ label, hint, error, style, onFocus, onBlur, leadingIcon, trailingAction, ...props }) {
   const [focused, setFocused] = useState(false);
   const input = <TextInput accessibilityLabel={label} placeholderTextColor={colors.textSecondary} {...props}

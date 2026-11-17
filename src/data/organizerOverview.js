@@ -1,3 +1,4 @@
+// Summarizes events and reservations for the organizer dashboard.
 import { eventTime } from './reservations.js';
 import { organizerEventCounts, publicEventStatuses } from './organizerEvents.js';
 

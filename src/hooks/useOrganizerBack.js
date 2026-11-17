@@ -1,3 +1,4 @@
+// Connects the native back button to the organizer's current screen.
 import { useEffect } from 'react';
 import { BackHandler } from 'react-native';
 

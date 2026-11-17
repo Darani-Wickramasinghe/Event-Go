@@ -1,9 +1,11 @@
+// Shows sign-up and login forms for attendees and organizers.
 import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import EventoraLogo from '../components/EventoraLogo';
 import { Action, Copy, Field, HeaderAction, Page } from '../components/FlowUI';
 import { accountFormDefaults } from '../services/authService';
 
+// Add a control to show or hide the password while typing.
 function PasswordField({ label, ...props }) {
   const [visible, setVisible] = useState(false);
 
@@ -39,6 +41,7 @@ export default function AccountScreen({ signUp, role, profile, onContinue, onSwi
   const title = signUp ? 'Sign up' : 'Log in';
   const organizer = role === 'organizer';
 
+  // Validate form fields before calling the account action supplied by App.
   async function submit() {
     if (loading) return;
     setError('');

@@ -1,3 +1,4 @@
+// Requests camera access and reads QR codes using Expo Camera.
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { useEffect, useRef, useState } from 'react';
 import { StyleSheet } from 'react-native';

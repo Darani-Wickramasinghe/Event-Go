@@ -1,3 +1,4 @@
+// Finds tickets within bookings and updates check-in information.
 import { getDatabaseCache, mutateDatabaseState } from '../config/database.js';
 import { REGISTRATION_STATUS } from '../models/registrationModel.js';
 

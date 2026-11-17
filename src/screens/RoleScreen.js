@@ -1,3 +1,4 @@
+// Lets a user choose whether to enter as an attendee or as an organizer.
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Image, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import EventoraLogo from '../components/EventoraLogo';

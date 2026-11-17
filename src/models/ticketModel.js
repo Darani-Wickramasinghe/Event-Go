@@ -1,3 +1,4 @@
+// Builds and validates ticket records for the repository layer.
 /**
  * Ticket Entity Model
  */

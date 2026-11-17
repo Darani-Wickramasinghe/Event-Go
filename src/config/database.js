@@ -1,3 +1,4 @@
+// Keeps the repository layer's data in memory for the current process.
 export const initialDatabaseState = {
   users: [],
   profile: { name: '', interests: [], city: 'Kelaniya', reminders: false, reminderHours: 24, role: 'Attendee' },

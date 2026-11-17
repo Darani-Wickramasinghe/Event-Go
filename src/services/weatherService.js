@@ -1,3 +1,4 @@
+// Fetches and caches hourly Open-Meteo forecasts for the weather summary rules.
 // Event-time weather using Open-Meteo (no API key needed).
 // Docs: https://open-meteo.com/en/docs
 // Never throws: always resolves to a WeatherSummary so weather problems can
@@ -96,6 +97,7 @@ export async function getEventWeather(event, options = {}) {
     });
   }
 
+  // Reuse recent hourly data for this location before asking the weather API again.
   const key = cacheKey(coords);
   const cached = cache.get(key);
 
@@ -108,6 +110,7 @@ export async function getEventWeather(event, options = {}) {
     cache.set(key, { hourly, fetchedAt: now });
     return computeWeatherSummary({ event, hourly, fetchedAt: now });
   } catch (e) {
+    // Use older cached data as a fallback when the forecast request fails.
     if (cached && now - cached.fetchedAt <= MAX_STALE_MS) {
       return computeWeatherSummary({
         event,

@@ -1,3 +1,4 @@
+// Loads and displays the venue forecast for the hours of an event.
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
@@ -11,6 +12,7 @@ export default function EventWeather({ event }) {
   const [expanded, setExpanded] = useState(false);
   const { latitude, longitude, startDate, startTime, endTime, setting, status } = event;
 
+  // Skip events without a usable forecast and request hourly weather for eligible dates.
   useEffect(() => {
     setForecast(null);
     setExpanded(false);
@@ -36,6 +38,7 @@ export default function EventWeather({ event }) {
     fetch(url, { signal: controller.signal }).then(async (response) => {
       if (!response.ok) throw new Error('Forecast unavailable');
       const { hourly } = await response.json();
+      // Pick the forecast hours that overlap the event schedule.
       const firstHour = Number(startTime.slice(0, 2));
       const lastHour = Number(endTime.slice(0, 2));
       const hours = hourly.time.map((value, index) => ({
@@ -53,6 +56,7 @@ export default function EventWeather({ event }) {
     return () => { active = false; clearTimeout(timeout); controller.abort(); };
   }, [latitude, longitude, startDate, startTime, endTime, setting, status]);
 
+  // Turn the forecast into a rain label and practical advice for attendees.
   const rain = forecast?.peak.rain;
   const storms = forecast?.hours.some(({ code }) => code >= 95);
   const advice = [];

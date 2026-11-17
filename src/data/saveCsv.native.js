@@ -1,3 +1,4 @@
+// Saves attendance CSV data to a native file for sharing.
 import { Directory, File, Paths } from 'expo-file-system';
 import { isAvailableAsync, shareAsync } from 'expo-sharing';
 

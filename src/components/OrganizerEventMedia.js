@@ -1,3 +1,4 @@
+// Provides shared event covers, status badges, and detail rows for organizer screens.
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useState } from 'react';
 import { Image, StyleSheet, Text, View } from 'react-native';

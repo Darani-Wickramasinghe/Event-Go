@@ -1,3 +1,4 @@
+// Lets users choose a photo and prepares it for use in a profile or event.
 import * as ImagePicker from 'expo-image-picker';
 import { ImageManipulator, SaveFormat } from 'expo-image-manipulator';
 import { useRef, useState } from 'react';

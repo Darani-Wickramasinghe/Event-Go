@@ -1,3 +1,4 @@
+// Searches for venues and converts matching places into map coordinates and labels.
 const searchUrl = process.env.EXPO_PUBLIC_VENUE_SEARCH_URL || 'https://photon.komoot.io/api/';
 
 export function isMapPoint(point) {

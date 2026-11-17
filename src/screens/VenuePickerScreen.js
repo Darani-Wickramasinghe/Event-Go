@@ -1,3 +1,4 @@
+// Lets organizers search for an address or choose a venue by dropping a pin.
 import { useEffect, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text } from 'react-native';
 import { Action, Copy, Field, Page, Panel } from '../components/FlowUI';
@@ -23,6 +24,7 @@ export default function VenuePickerScreen({ venue, city, point, knownVenues, onB
     pending?.abort();
   }, []);
 
+  // Look up venues and keep matches from existing events as a fallback.
   async function search() {
     if (request.current || !query.trim()) return;
     const controller = new AbortController();
@@ -52,6 +54,7 @@ export default function VenuePickerScreen({ venue, city, point, knownVenues, onB
     }
   }
 
+  // Set the map pin and venue details from the chosen search result.
   function pickResult(result) {
     request.current?.abort();
     request.current = null;

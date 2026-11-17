@@ -1,3 +1,4 @@
+// Tracks the current position and draws the driving route and venue radius on mobile.
 import Ionicons from '@expo/vector-icons/Ionicons';
 import * as Location from 'expo-location';
 import { useEffect, useRef, useState } from 'react';
@@ -81,12 +82,14 @@ export default function NavigationMapScreen({ event, onBack }) {
   }, []);
 
   // ── Route ──
+  // Fetch road geometry using the current GPS position and event destination.
   const { loading: routeLoading, error: routeError, route } = useNavigationRoute(
     location,
     destination
   );
 
   // ── Geofence ──
+  // Compare the user's current position with the selected radius around the venue.
   const { isNearDestination, distanceKm } = useGeofence(location, destination, {
     radiusKm,
     eventTitle: event?.title || 'your destination',
@@ -113,6 +116,7 @@ export default function NavigationMapScreen({ event, onBack }) {
   }, [location, destination, route]);
 
   // ── Recenter button ──
+  // Move the map back to the user's current position.
   function recenter() {
     if (!map.current) return;
     if (route?.coordinates?.length > 1) {

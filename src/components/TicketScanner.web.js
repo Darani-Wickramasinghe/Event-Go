@@ -1,3 +1,4 @@
+// Reads QR codes from browser camera frames using jsQR.
 import jsQR from 'jsqr';
 import { useEffect, useRef, useState } from 'react';
 import { Action } from './FlowUI';
@@ -20,6 +21,7 @@ export default function TicketScanner({ onScan, onStart, onError, disabled, star
     const preview = video.current;
     const canvas = document.createElement('canvas');
 
+    // Cancel QR frame checks and close the preview so effect cleanup can release the camera.
     function stop() {
       scanning.current = false;
       clearInterval(interval);
@@ -35,6 +37,7 @@ export default function TicketScanner({ onScan, onStart, onError, disabled, star
         : 'Camera unavailable. Connect a camera or enter the ticket code.');
     }
 
+    // Open the browser camera stream and begin looking for a QR code in its frames.
     async function start() {
       try {
         const context = canvas.getContext('2d', { willReadFrequently: true });

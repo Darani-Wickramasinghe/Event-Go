@@ -1,3 +1,4 @@
+// Uses Leaflet to display event markers, a chosen venue, or the user's location.
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { useEffect, useRef } from 'react';

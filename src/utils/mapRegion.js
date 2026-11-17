@@ -1,3 +1,4 @@
+// Provides helpers for map bounds and for checking which points are visible.
 // Pure map helpers (no React). Tested in tests/mapRegion.test.mjs.
 // Note: longitude wrap-around at +/-180 is ignored (not needed for Sri Lanka).
 

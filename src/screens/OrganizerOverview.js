@@ -1,3 +1,4 @@
+// Shows organizer totals, event summaries, and shortcuts to common actions.
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';

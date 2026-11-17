@@ -1,3 +1,4 @@
+// Builds calendar entries from bookings and provides helpers for month navigation.
 import { bookingStatus, sriLankaDate } from './reservations';
 
 export function agendaEntries(bookings, events) {

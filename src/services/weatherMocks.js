@@ -1,3 +1,4 @@
+// Provides sample hourly forecasts for exercising weather rules.
 // Fake Open-Meteo responses for demos and tests (AT-19 etc.).
 // Pass buildMockFetch(...) as options.fetchImpl to getEventWeather.
 

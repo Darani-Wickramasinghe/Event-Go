@@ -1,3 +1,4 @@
+// Loads event updates from Firestore and writes event details and status changes.
 /**
  * Event Firestore Service
  * Connects event creation, editing, status transitions, and real-time syncing to Cloud Firestore.

@@ -1,3 +1,4 @@
+// Shows a selected event's details and the actions available to its organizer.
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useRef, useState } from 'react';
 import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';

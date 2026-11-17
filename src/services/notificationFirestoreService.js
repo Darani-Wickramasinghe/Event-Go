@@ -1,3 +1,4 @@
+// Stores cloud notifications and reports and updates notification read status.
 /**
  * Notification & Operations Firestore Service
  * Connects notifications, read status, and user reports to Cloud Firestore.

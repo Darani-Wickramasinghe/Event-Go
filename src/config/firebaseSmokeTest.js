@@ -1,3 +1,4 @@
+// Checks whether a simple event query can reach Firestore.
 import { collection, getDocs, limit, query, where } from "firebase/firestore";
 import { db, isFirebaseConfigured } from "./firebase";
 

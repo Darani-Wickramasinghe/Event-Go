@@ -1,3 +1,4 @@
+// Animates the startup logo while the app prepares its initial screen.
 import { useEffect, useRef, useState } from 'react';
 import { AccessibilityInfo, Animated, Easing, Platform, StyleSheet, View } from 'react-native';
 import EventoraLogo from '../components/EventoraLogo';

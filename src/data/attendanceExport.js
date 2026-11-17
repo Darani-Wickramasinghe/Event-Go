@@ -1,3 +1,4 @@
+// Turns event attendance totals into a CSV file.
 import { saveCsv } from './saveCsv';
 
 function csvCell(value) {

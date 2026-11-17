@@ -1,3 +1,4 @@
+// Defines the status values and record shapes used by the Member 5 demo.
 // MEMBER 5 - shared names ("the contract").
 // Agree these names with Members 2 and 3. If they rename something later,
 // change it HERE only - the rest of your code imports from this file.

@@ -1,3 +1,4 @@
+// Collects attendee names for free reservations and shows price previews for paid events.
 import { useRef, useState } from 'react';
 import { Action, Choices, Copy, Field, Page, Panel } from '../components/FlowUI';
 import { formatPrice } from '../data/events';
@@ -22,6 +23,7 @@ export default function ReservationScreen({ event, events, bookings, remaining, 
       && eventTime(booked) < eventTime(event, event.endTime);
   });
 
+  // Check the attendee names before opening the review step.
   function review() {
     if (!paid && Array.from({ length: Number(quantity) }, (_, index) => names[index]).some((name) => !name?.trim())) {
       setError('Enter a name for each attendee.');
@@ -31,6 +33,7 @@ export default function ReservationScreen({ event, events, bookings, remaining, 
     setStep('review');
   }
 
+  // Prevent a second submission while the reservation is being saved.
   async function confirm() {
     if (pending.current) return;
     pending.current = true;

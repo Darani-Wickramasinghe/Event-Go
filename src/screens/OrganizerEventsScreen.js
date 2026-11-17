@@ -1,3 +1,4 @@
+// Shows the organizer's searchable event list and each listing's actions.
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useEffect, useMemo, useState } from 'react';
 import { Keyboard, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';

@@ -1,3 +1,4 @@
+// Connects booking, event, and check-in actions to local storage and Firestore.
 import { randomUUID } from 'expo-crypto';
 import { useEffect, useMemo, useState } from 'react';
 import { events as seedEvents, eventCoverSource, formatEventDate } from './events.js';
@@ -22,6 +23,7 @@ import {
   saveNotificationToFirestore,
 } from '../services/notificationFirestoreService.js';
 
+// Merge a booking by ID and keep a newer local copy if updates arrive out of order.
 function saveBookingLocally(current, booking, notice) {
   const index = current.bookings.findIndex(({ id }) => id === booking.id);
   const bookings = [...current.bookings];
@@ -36,6 +38,7 @@ function saveBookingLocally(current, booking, notice) {
   return { ...current, bookings, notifications };
 }
 
+// Combine cloud or sample events with local creations and edits for the screens.
 function listEvents(data, cloudEvents = []) {
   const firstDay = Date.parse(data.demoDate || '2026-11-15');
   const anchor = Date.parse('2026-11-13');
@@ -115,6 +118,7 @@ export function useEventoraData(firebaseUserId) {
     [data.demoDate, data.createdEvents, data.eventEdits, data.organizerProfiles, cloudEvents]
   );
 
+  // Generate one code per attendee and validate the booking before choosing a storage path.
   async function reserve(eventId, names, id) {
     const codes = names.map(() => randomUUID());
     const now = Date.now();
@@ -161,6 +165,7 @@ export function useEventoraData(firebaseUserId) {
     return id;
   }
 
+  // Check cancellation rules and save the new booking status.
   async function cancel(bookingId) {
     function getReservation(current) {
       const booking = current.bookings.find(({ id }) => id === bookingId);
@@ -200,6 +205,7 @@ export function useEventoraData(firebaseUserId) {
     }
   }
 
+  // Validate the new or edited event and update the local listing.
   function saveEvent(draft, eventId, publish = false) {
     const id = eventId ?? randomUUID();
     let eventToPersist = null;
@@ -263,6 +269,7 @@ export function useEventoraData(firebaseUserId) {
     return result;
   }
 
+  // Apply a valid status change and send it to Firestore when configured.
   function setEventStatus(eventId, status, reason) {
     const result = commit((current) => {
       if (!current.signedIn) throw new Error('Log in to manage events.');
@@ -282,6 +289,7 @@ export function useEventoraData(firebaseUserId) {
     return result;
   }
 
+  // Check event permissions and validate the ticket against cloud or local bookings.
   async function checkIn(eventId, code) {
     function getCheckIn(current) {
       const event = listEvents(current, cloudEvents).find((item) => item.id === eventId);

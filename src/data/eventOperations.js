@@ -1,8 +1,10 @@
+// Validates draft fields and updates local records when an event changes status.
 import { dateRangeError } from './eventFilters.js';
 import { formatEventDate } from './events.js';
 import { eventTime, reservedPlaces } from './reservations.js';
 import { buildEventChangeNotifications, safeMergeNotifications } from './notifications.js';
 
+// Normalize event form values and validate schedule, capacity, price, and location.
 export function eventFromDraft(draft, id, bookings) {
   const title = draft.title.trim();
   const city = draft.city.trim();
@@ -34,6 +36,7 @@ export function eventFromDraft(draft, id, bookings) {
   };
 }
 
+// Apply status changes to the local event, related bookings, and notices.
 export function changeEventStatus(data, event, status, reason, now = Date.now()) {
   if (status === 'Archived') reason = event.reason ?? '';
   if (status === 'Published' && eventTime(event, event.endTime) <= now) throw new Error('Set a future schedule before publishing.');

@@ -1,3 +1,4 @@
+// Filters and sorts organizer events and calculates their booking totals.
 import { eventTime } from './reservations.js';
 
 export const publicEventStatuses = ['Published', 'Rescheduled', 'Closed'];

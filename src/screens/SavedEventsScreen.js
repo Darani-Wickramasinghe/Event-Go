@@ -1,3 +1,4 @@
+// Lists bookmarked events and lets the attendee search or return to browsing.
 import { useState } from 'react';
 import { Action, Choices, Copy, Field, Page, Panel } from '../components/FlowUI';
 import { filterEvents, defaultFilters } from '../data/eventFilters';

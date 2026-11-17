@@ -1,3 +1,4 @@
+// Shows the separate attendance and notification demo using sample data.
 import { useState } from 'react';
 import { Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { colors } from '../theme';

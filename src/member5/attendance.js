@@ -1,3 +1,4 @@
+// Checks ticket scans and calculates attendance for the separate Member 5 demo.
 import { CHECK_RESULT, EVENT_STATUS, TICKET_STATUS } from './contract.js';
 
 // Decide what a scan means. Does NOT change anything - just answers.

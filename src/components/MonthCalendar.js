@@ -1,3 +1,4 @@
+// Draws the month grid and lets users select a date or switch months.
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { formatCalendarDate, monthDays, shiftMonth } from '../data/agenda';

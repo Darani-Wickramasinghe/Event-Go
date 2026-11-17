@@ -1,3 +1,4 @@
+// Supplies sample events, bookings, and related data for the Member 5 demo.
 import { BOOKING_STATUS, EVENT_STATUS, TICKET_STATUS } from './contract.js';
 
 // Fixed "today" so demos and tests behave the same every time.

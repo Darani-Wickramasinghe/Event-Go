@@ -1,3 +1,4 @@
+// Reads Expo configuration and initializes Firebase Auth and Firestore when configured.
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { getApp, getApps, initializeApp } from "firebase/app";
 import * as authModule from "firebase/auth";
@@ -14,6 +15,7 @@ try {
 }
 
 // Values come from the .env file (see .env.example). Each teammate has their own .env.
+// Read project settings that Expo exposes to the running app.
 const firebaseConfig = {
   apiKey: process.env.EXPO_PUBLIC_FIREBASE_API_KEY,
   authDomain: process.env.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN,
@@ -24,6 +26,7 @@ const firebaseConfig = {
 };
 
 const required = ["apiKey", "authDomain", "projectId", "appId"];
+// Keep Firebase off when any required project setting is missing.
 const missing = required.filter((key) => !firebaseConfig[key]);
 
 // If .env is missing, the app still runs (demo mode) instead of crashing.
