@@ -1,3 +1,4 @@
+// Builds and validates user records for the repository layer.
 /**
  * User Entity Model
  */

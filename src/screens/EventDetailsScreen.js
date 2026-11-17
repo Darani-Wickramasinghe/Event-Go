@@ -1,3 +1,4 @@
+// Shows event information and entry points for booking, directions, and reporting.
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useState } from 'react';
 import { Image, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';

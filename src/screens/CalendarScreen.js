@@ -1,3 +1,4 @@
+// Shows reservations or organizer events on a month calendar.
 import { StyleSheet, Text } from 'react-native';
 import { Action, Copy, EmptyState, Page, Panel, SectionHeading } from '../components/FlowUI';
 import MonthCalendar, { fullDate } from '../components/MonthCalendar';

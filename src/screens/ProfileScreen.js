@@ -1,3 +1,4 @@
+// Shows the attendee profile and forms for editing account settings and interests.
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';

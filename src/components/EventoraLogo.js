@@ -1,3 +1,4 @@
+// Renders the Eventora logo as a reusable image.
 import { Image } from 'react-native';
 
 export default function EventoraLogo({ style }) {

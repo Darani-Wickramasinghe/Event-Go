@@ -1,3 +1,4 @@
+// Displays and edits organizer details and shows the public organizer profile.
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useRef, useState } from 'react';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';

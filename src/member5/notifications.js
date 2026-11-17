@@ -1,3 +1,4 @@
+// Builds the event change notices and reminders used by the Member 5 demo.
 import { BOOKING_STATUS, EVENT_STATUS, NOTICE_TYPE } from './contract.js';
 
 const HOUR = 60 * 60 * 1000;

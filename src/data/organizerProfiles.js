@@ -1,3 +1,4 @@
+// Reads and updates the organizer details shown in the account and event screens.
 import { ROLES, validateEmail } from '../services/authService.js';
 
 export function editableOrganizerProfile(data) {

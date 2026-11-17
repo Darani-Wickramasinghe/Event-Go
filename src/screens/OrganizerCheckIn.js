@@ -1,3 +1,4 @@
+// Lists events available for check-in and validates camera scans or typed ticket codes.
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Keyboard, StyleSheet, Text, View } from 'react-native';
@@ -17,6 +18,7 @@ export function CheckInEvents({ events, bookings, onOpen, onBrowse }) {
     return () => clearInterval(clock);
   }, []);
   const today = sriLankaDate(now);
+  // Restrict the check-in list to events that are still eligible.
   const eligible = useMemo(() => events.filter((event) => event.startDate >= today &&
     canCheckInOrganizerEvent(event, now) && Number.isFinite(eventTime(event)))
     .sort((first, second) => eventTime(first) - eventTime(second)), [events, now, today]);
@@ -58,6 +60,7 @@ export function OrganizerTicketCheckIn({ event, counts, onBack, onValidate }) {
   const lock = useRef(false);
   const rate = counts.places ? Math.round(100 * counts.checkedIn / counts.places) : 0;
 
+  // Pass the code to the check-in action and show the accepted ticket or error.
   async function validate(value) {
     if (validating.current || lock.current) return;
     validating.current = true;
@@ -82,6 +85,7 @@ export function OrganizerTicketCheckIn({ event, counts, onBack, onValidate }) {
     setResult(null);
   }
 
+  // Clear the previous result and request a fresh camera scan.
   function resetAndScan() {
     reset();
     setManual(false);

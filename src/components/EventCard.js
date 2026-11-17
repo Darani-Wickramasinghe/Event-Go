@@ -1,3 +1,4 @@
+// Shows an event preview and gives users separate actions to open or bookmark it.
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { formatPrice } from '../data/events';

@@ -1,3 +1,4 @@
+// Loads a weather summary and exposes loading and refresh controls to React screens.
 import { useCallback, useEffect, useState } from 'react';
 import { getEventWeather } from '../services/weatherService.js';
 

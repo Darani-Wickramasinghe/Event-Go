@@ -1,3 +1,4 @@
+// Builds external directions links and formats route estimates.
 // Pure helpers for external navigation and route text.
 // No API key is needed: we open the Google Maps app/site with a universal link.
 

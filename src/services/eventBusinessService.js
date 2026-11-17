@@ -1,3 +1,4 @@
+// Checks organizer permissions, validates event changes, and controls status transitions.
 /**
  * Event Business Service - Member 3: Authentication & Core Business Logic
  * Business rules for event creation, editing, state transitions, and organizer permissions.
@@ -19,6 +20,7 @@ export const VALID_EVENT_STATUSES = [
   'Rescheduled',
 ];
 
+// Check the role and event ownership before allowing management actions.
 export function validateEventPermissions(userProfile, role, event = null) {
   if (!isOrganizer(role) && !isAdmin(role)) {
     throw new Error('Only organizers or administrators can perform event management operations.');
@@ -55,6 +57,7 @@ export function createOrganizerEvent(userProfile, role, draftData, existingBooki
   };
 }
 
+// Compare the draft to the listing and apply the rules for price and schedule changes.
 export function updateOrganizerEvent(userProfile, role, existingEvent, draftData, existingBookings = []) {
   validateEventPermissions(userProfile, role, existingEvent);
 
@@ -111,6 +114,7 @@ export function transitionEventStatus(userProfile, role, currentStoreData, event
   const ended = eventTime(event, event.endTime) <= Date.now();
   const isPublic = ['Published', 'Rescheduled', 'Closed'].includes(event.status);
 
+  // List the next statuses permitted from each event state.
   const allowedTransitions = {
     Draft: ['Published'],
     Published: ['Closed', 'Cancelled'],

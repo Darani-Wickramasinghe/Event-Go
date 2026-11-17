@@ -1,3 +1,4 @@
+// Provides GPS permission handling, live position updates, and a manual city fallback.
 import React, {
   createContext,
   useCallback,
@@ -32,6 +33,7 @@ export function LocationProvider({ children, autoRequest = true }) {
   const [canAskAgain, setCanAskAgain] = useState(true);
   const subscription = useRef(null);
 
+  // Remove the GPS subscription so updates stop when location is no longer needed.
   const stopWatching = useCallback(() => {
     if (subscription.current) {
       subscription.current.remove();
@@ -39,6 +41,7 @@ export function LocationProvider({ children, autoRequest = true }) {
     }
   }, []);
 
+  // Record the latest GPS reading and flag a weak reading using its accuracy.
   const handlePosition = useCallback((loc) => {
     setGpsCoords({
       latitude: loc.coords.latitude,
@@ -53,6 +56,7 @@ export function LocationProvider({ children, autoRequest = true }) {
     setStatus(LOCATION_STATUS.READY);
   }, []);
 
+  // Start listening for position changes and stop updates from any earlier watcher.
   const startWatching = useCallback(async () => {
     stopWatching();
     try {
@@ -116,6 +120,7 @@ export function LocationProvider({ children, autoRequest = true }) {
 
   // The single origin the whole app uses for distance, nearby and weather.
   // Manual selection wins; otherwise GPS; otherwise null (distance unavailable).
+  // Use the selected manual city first, otherwise use the latest GPS position.
   const origin = useMemo(() => {
     if (manualOrigin) {
       return {

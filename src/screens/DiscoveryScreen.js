@@ -1,3 +1,4 @@
+// Renders the attendee Home and Explore tabs using shared search and filter state.
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
@@ -17,17 +18,20 @@ export default function DiscoveryScreen({ home, openExplore, renderEvent, openNo
   const nearby = upcoming.filter((event) => event.city.toLowerCase() === city.toLowerCase());
   const recommended = upcoming.filter((event) => interests.includes(event.category));
 
+  // Apply the selected category and show its results in Explore.
   function selectCategory(label) {
     setCategory(label);
     openExplore();
   }
 
+  // Return the search, category, and filters to their default values.
   function clearFilters() {
     setSearch('');
     setCategory('All');
     setFilters(defaultFilters);
   }
 
+  // Apply the options chosen in the filter sheet and close it.
   function applyFilters(nextFilters, nextCategory) {
     setFilters(nextFilters);
     setCategory(nextCategory);

@@ -1,3 +1,4 @@
+// Requests route distances and road geometry from OSRM.
 const OSRM_URL = 'https://router.project-osrm.org/route/v1/driving';
 const cache = new Map();
 const geometryCache = new Map();

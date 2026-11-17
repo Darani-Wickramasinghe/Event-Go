@@ -1,3 +1,4 @@
+// Defines the shape and defaults for a user's event preferences.
 /**
  * User Preferences Entity Model
  */

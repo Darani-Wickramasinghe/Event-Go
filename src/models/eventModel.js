@@ -1,3 +1,4 @@
+// Builds and validates event records for the repository layer.
 /**
  * Event Entity Model & Integrity Validation
  */

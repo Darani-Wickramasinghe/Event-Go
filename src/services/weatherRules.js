@@ -1,3 +1,4 @@
+// Turns hourly weather data into advice based on event time and forecast thresholds.
 // Pure weather rules (no network). Easy to unit test.
 // Thresholds are PRODUCT RULES from the Eventora analysis / SRS (FR-08, BR-09),
 // not scientific safety thresholds.

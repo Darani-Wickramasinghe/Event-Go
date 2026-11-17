@@ -1,3 +1,4 @@
+// Defines the colors, typography, spacing, and other style values shared by screens.
 const palette = {
   primary: '#4F46E5',
   background: '#F8F9FD',

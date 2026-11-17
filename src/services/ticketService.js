@@ -1,3 +1,4 @@
+// Checks scanner permissions and delegates validation of the ticket code.
 /**
  * Ticket Service - Member 3: Authentication & Core Business Logic
  * Unique ticket credentials, QR validation, scanner business logic, repeat scan prevention, and attendance status.

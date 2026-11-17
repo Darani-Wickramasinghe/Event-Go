@@ -1,3 +1,4 @@
+// Checks account, event, reservation, ticket, and paid preview rules.
 /**
  * Member 3: Authentication and Core Business Logic Unit Tests
  */

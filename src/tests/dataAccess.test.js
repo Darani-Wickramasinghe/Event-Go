@@ -1,3 +1,4 @@
+// Checks that the in-memory repositories read and update their records correctly.
 import './polyfill.js';
 /**
  * Eventora Data Access & Integrity Unit Tests

@@ -1,3 +1,4 @@
+// Chooses between the native event map and the organizer's venue picker.
 import { useEffect, useRef } from 'react';
 import { StyleSheet } from 'react-native';
 import MapView, { Marker } from 'react-native-maps';

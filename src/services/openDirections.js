@@ -1,3 +1,4 @@
+// Opens a directions link through the platform's link handler.
 import { Linking } from 'react-native';
 import { buildDirectionsUrl } from './directionsUrl';
 

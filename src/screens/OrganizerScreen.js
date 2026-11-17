@@ -1,3 +1,4 @@
+// Controls organizer tabs and opens event management, attendance, and check-in screens.
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Keyboard, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
@@ -54,6 +55,7 @@ export function OrganizerScreen({ data, events, onSave, onStatus, onScan, onBack
   const [editingProfile, setEditingProfile] = useState(false);
   const [profileSaved, setProfileSaved] = useState(false);
   const [attendanceView, setAttendanceView] = useState({});
+  // Collect events this organizer can manage for their workspace.
   const myEvents = useMemo(() => {
     if (!data.signedIn) return [];
     const createdEventIds = new Set(data.createdEvents.map((event) => event.id));
@@ -67,6 +69,7 @@ export function OrganizerScreen({ data, events, onSave, onStatus, onScan, onBack
   const unreadCount = notices.filter((notice) => !notice.read).length;
   const notificationLabel = unreadCount ? `Open notifications, ${unreadCount} unread` : 'Open notifications';
 
+  // Open a specific management section for the selected event.
   function openEvent(event, screen = 'overview') {
     setSelected({ id: event.id, screen });
   }
@@ -198,6 +201,7 @@ export function OrganizerScreen({ data, events, onSave, onStatus, onScan, onBack
   );
 }
 
+// Render the workspace tabs and support keyboard navigation.
 function OrganizerTabBar({ selected, onSelect }) {
   const buttons = useRef([]);
 
@@ -260,6 +264,7 @@ const eventConfirmations = {
   archive: { title: 'Archive event', status: 'Archived', text: 'This event will move to Archived and its listing will be removed from discovery.' },
 };
 
+// Control the event details, attendance, and check-in views for a single event.
 function ManageEvent({ event, bookings, initialScreen, onBack, onEdit, onStatus, onScan }) {
   const [reason, setReason] = useState('');
   const [message, setMessage] = useState('');
@@ -314,6 +319,7 @@ function ManageEvent({ event, bookings, initialScreen, onBack, onEdit, onStatus,
     }
   }
 
+  // Pass the current attendance totals to the CSV exporter.
   async function exportSummary() {
     setExporting(true);
     setMessage('');

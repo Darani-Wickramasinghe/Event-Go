@@ -1,3 +1,4 @@
+// Calculates a paid ticket preview and enforces the preview-only checkout rule.
 /**
  * Paid Preview Service - Member 3: Authentication & Core Business Logic
  * Enforces the paid-event preview boundary required by Section 11 of the specification.

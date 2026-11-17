@@ -1,3 +1,4 @@
+// Starts Eventora and connects account state, navigation, and event actions to the screens.
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { randomUUID } from 'expo-crypto';
 import { useFonts } from 'expo-font';
@@ -59,6 +60,7 @@ function hideNativeSplash() {
   if (Platform.OS !== 'web') SplashScreen.hideAsync().catch(() => {});
 }
 
+// Load the heading font and provide safe-area information to the app.
 export default function App() {
   const [fontsLoaded, fontError] = useFonts({
     ...Ionicons.font,
@@ -72,6 +74,7 @@ export default function App() {
   );
 }
 
+// Keep track of the current role, tab, selected page, and event data.
 function Eventora({ fontsReady }) {
   const [launching, setLaunching] = useState(true);
   const [role, setRole] = useState(null);
@@ -99,6 +102,7 @@ function Eventora({ fontsReady }) {
 
   useEffect(() => {
     if (!page) return;
+    // Let the Android back button return to the previous app page while a page is open.
     const back = BackHandler.addEventListener('hardwareBackPress', () => {
       goBack();
       return true;
@@ -109,6 +113,7 @@ function Eventora({ fontsReady }) {
   useEffect(() => {
     if (!ready) return;
     let active = true;
+    // Read an event ID from an incoming web link or Eventora app link.
     function openLink(url) {
       if (!active || !url) return;
       let id;
@@ -136,6 +141,7 @@ function Eventora({ fontsReady }) {
 
   useEffect(() => {
     if (!ready || !isFirebaseConfigured || !auth) return;
+    // Restore the signed-in profile when Firebase reports a session change.
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       setFirebaseUserId(firebaseUser?.uid ?? null);
       if (firebaseUser) {
@@ -168,6 +174,7 @@ function Eventora({ fontsReady }) {
     return () => unsubscribe();
   }, [ready]);
 
+  // Clear the current navigation and return to the role picker.
   function switchRole() {
     setPages([]);
     setMenuOpen(false);
@@ -175,6 +182,7 @@ function Eventora({ fontsReady }) {
     setRole(null);
   }
 
+  // Sign out of Firebase when configured, then clear the app session.
   async function signOut() {
     if (isFirebaseConfigured) {
       try {
@@ -192,6 +200,7 @@ function Eventora({ fontsReady }) {
     setPages([{ name: 'signUp', entry: true }]);
   }
 
+  // Push a page onto the stack so the user can return to the previous screen.
   function open(name, params = {}) {
     setPages((current) => [...current, { name, ...params }]);
   }
@@ -232,6 +241,7 @@ function Eventora({ fontsReady }) {
     }
   }
 
+  // Add or remove the event ID from the locally stored bookmarks.
   function toggleSave(eventId) {
     update((current) => ({
       ...current,
@@ -241,6 +251,7 @@ function Eventora({ fontsReady }) {
     }));
   }
 
+  // Give every event card the same open and bookmark actions.
   function renderEvent(event, compact = false) {
     return (
       <EventCard
@@ -254,6 +265,7 @@ function Eventora({ fontsReady }) {
     );
   }
 
+  // Choose a screen from the current role, page, and tab.
   function renderPage() {
     if (!ready) return <Page title="Eventora"><LoadingState label="Loading your events…" /></Page>;
     if (!role) return <RoleScreen onSelect={selectRole} />;
@@ -265,6 +277,7 @@ function Eventora({ fontsReady }) {
       case 'event': {
         const booking = bookings.find((item) => item.eventId === event.id && item.status === 'Confirmed')
           ?? (event.status === 'Cancelled' ? bookings.find((item) => item.eventId === event.id) : undefined);
+        // Open an existing ticket, or start a new reservation and require login when needed.
         function book() {
           if (booking) {
             openTicket(booking.id);
@@ -340,6 +353,7 @@ function Eventora({ fontsReady }) {
         return <ReservationScreen key={page.requestId} event={event} events={events} bookings={bookings}
           remaining={remainingPlaces(event, data.bookings)} profile={data.profile} onBack={goBack}
           onConfirm={async (names) => {
+            // Save the booking before replacing this reservation page with the new ticket.
             const bookingId = await reserve(event.id, names, page.requestId);
             setPages((current) => current.at(-1)?.requestId === page.requestId
               ? [...current.slice(0, -1), { name: 'ticket', bookingId, confirmed: true }]

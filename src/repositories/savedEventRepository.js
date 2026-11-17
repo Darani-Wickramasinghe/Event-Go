@@ -1,3 +1,4 @@
+// Adds, removes, and looks up bookmarks for a user.
 import { getDatabaseCache, mutateDatabaseState } from '../config/database.js';
 import { createSavedEventEntity } from '../models/savedEventModel.js';
 

@@ -1,5 +1,7 @@
+// Defines reservation limits, ticket rules, and capacity calculations.
 export const bookingLimit = 4;
 
+// Convert the event date and time from Sri Lanka time to a timestamp.
 export function eventTime(event, time = event.startTime) {
   return new Date(`${event.startDate}T${time}:00+05:30`).getTime();
 }
@@ -8,6 +10,7 @@ export function sriLankaDate(now = Date.now()) {
   return new Date(now + 330 * 60000).toISOString().slice(0, 10);
 }
 
+// Count tickets in confirmed bookings because one booking can reserve several places.
 export function reservedPlaces(event, bookings) {
   return bookings
     .filter((booking) => booking.eventId === event.id && booking.status === 'Confirmed')
@@ -18,6 +21,7 @@ export function remainingPlaces(event, bookings) {
   return event.capacity === null ? null : event.capacity - reservedPlaces(event, bookings);
 }
 
+// Return the reason an event cannot accept reservations, or an empty string if it can.
 export function registrationStatus(event, bookings, now = Date.now()) {
   if (event.status === 'Archived') return 'Event archived';
   if (event.status === 'Cancelled') return 'Event cancelled';
@@ -29,6 +33,7 @@ export function registrationStatus(event, bookings, now = Date.now()) {
   return '';
 }
 
+// Match cloud bookings by Firebase user ID and demo bookings by email.
 export function ownsReservation(booking, profile) {
   if (booking.userId && booking.userId !== 'demo-user') {
     return booking.userId === profile?.uid;
@@ -38,6 +43,7 @@ export function ownsReservation(booking, profile) {
   return !!attendeeEmail && attendeeEmail === profile?.email?.trim().toLowerCase();
 }
 
+// Check availability and names before building one ticket per reserved place.
 export function makeReservation(event, bookings, names, id, codes, now = Date.now(), profile) {
   const existing = bookings.find((item) => item.id === id);
   if (existing) {
@@ -65,6 +71,7 @@ export function makeReservation(event, bookings, names, id, codes, now = Date.no
   };
 }
 
+// Reject cancellation after the deadline or once a ticket has been used.
 export function cancellationReason(event, booking, now = Date.now()) {
   if (booking.status !== 'Confirmed') return 'This reservation is cancelled.';
   if (booking.tickets.some((ticket) => ticket.checkedInAt)) return 'A ticket has already been checked in.';
@@ -72,6 +79,7 @@ export function cancellationReason(event, booking, now = Date.now()) {
   return '';
 }
 
+// Verify the code and set a check-in time only on the matching unused ticket.
 export function scanTicket(event, bookings, code, now = Date.now()) {
   const booking = bookings.find((item) => item.tickets.some((ticket) => ticket.code === code));
   if (!booking) throw new Error('Ticket code was not found.');

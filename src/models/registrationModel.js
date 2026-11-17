@@ -1,3 +1,4 @@
+// Builds and validates reservation records for the repository layer.
 /**
  * Registration Entity Model
  */

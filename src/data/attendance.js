@@ -1,3 +1,4 @@
+// Builds attendee rows from bookings and calculates check-in counts.
 /**
  * Attendance Management Module - Core Data & Query Functions
  * Reuses existing Eventora events and bookings data.
@@ -28,6 +29,7 @@ export function getOrganizerEvents(events = [], profile = {}) {
 export function getEventAttendees(bookings = [], eventId) {
   if (!eventId || !Array.isArray(bookings)) return [];
 
+  // Read only bookings for this event, then create one attendee row per ticket.
   const eventBookings = bookings.filter((booking) => booking.eventId === eventId);
   const attendees = [];
 
@@ -71,6 +73,7 @@ export function getEventAttendees(bookings = [], eventId) {
  */
 export function calculateAttendanceStats(attendees = []) {
   // Only confirmed (non-cancelled) attendees count toward attendance
+  // Exclude cancelled tickets when calculating the attendance percentage.
   const confirmedAttendees = attendees.filter((a) => a.isConfirmed ?? !a.isCancelled);
   const totalRegistered = confirmedAttendees.length;
   const checkedIn = confirmedAttendees.filter((a) => a.status === 'Checked in').length;

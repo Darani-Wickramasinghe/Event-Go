@@ -1,3 +1,4 @@
+// Checks the attendance and notification rules used by the Member 5 demo.
 import { attendanceLabel, attendanceSummary, checkInTicket, validateTicket } from '../attendance.js';
 import { CHECK_RESULT, EVENT_STATUS } from '../contract.js';
 import { MOCK_NOW, mockBookings, mockEvents, mockTickets } from '../mockData.js';

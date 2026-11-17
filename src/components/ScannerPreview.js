@@ -1,3 +1,4 @@
+// Frames the camera preview used for ticket scanning.
 import { StyleSheet, View } from 'react-native';
 import { colors, radii } from '../theme';
 

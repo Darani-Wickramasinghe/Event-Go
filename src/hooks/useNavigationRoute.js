@@ -1,3 +1,4 @@
+// Loads road geometry and refreshes it when the origin moves far enough.
 import { useEffect, useRef, useState } from 'react';
 import { getRouteGeometry } from '../services/routeService';
 import { movedEnough } from '../utils/mapRegion';

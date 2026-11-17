@@ -1,3 +1,4 @@
+// Displays an event's attendee list, search filters, and check-in totals.
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useMemo, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';

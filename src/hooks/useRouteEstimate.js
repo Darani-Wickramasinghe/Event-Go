@@ -1,3 +1,4 @@
+// Loads a driving distance and time estimate when the route endpoints change.
 import { useEffect, useState } from 'react';
 import { getRouteEstimate } from '../services/routeService';
 import { movedEnough } from '../utils/mapRegion';

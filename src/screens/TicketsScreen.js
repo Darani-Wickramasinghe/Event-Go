@@ -1,3 +1,4 @@
+// Displays booking history, individual QR tickets, and cancellation actions.
 import qrGenerator from 'qrcode-generator';
 import { useMemo, useRef, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
@@ -46,6 +47,7 @@ export function TicketScreen({ booking, event, confirmed, onBack, onEvent, onCan
   const status = bookingStatus(event, booking);
   const blocked = cancellationReason(event, booking);
 
+  // Call the cancellation action and show an error if the booking cannot be cancelled.
   async function cancel() {
     if (pending.current) return;
     pending.current = true;
@@ -104,6 +106,7 @@ export function TicketScreen({ booking, event, confirmed, onBack, onEvent, onCan
   );
 }
 
+// Convert a ticket code to a grid of dark and light squares for the scanner.
 function TicketCode({ code }) {
   const rows = useMemo(() => {
     const qr = qrGenerator(0, 'M');

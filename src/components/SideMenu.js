@@ -1,3 +1,4 @@
+// Shows account details and shortcuts to the tools for the current role.
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Image, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';

@@ -1,3 +1,4 @@
+// Creates, finds, and updates users in the repository's in-memory store.
 import { getDatabaseCache, mutateDatabaseState } from '../config/database.js';
 import { createUserEntity } from '../models/userModel.js';
 import { createUserPreferencesEntity } from '../models/userPreferencesModel.js';

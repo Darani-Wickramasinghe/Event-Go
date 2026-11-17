@@ -1,3 +1,4 @@
+// Checks forecast thresholds, missing data, and network fallback behavior.
 // Run with:  node tests/weatherRules.test.mjs   (Node 22+)
 import assert from 'node:assert/strict';
 import { getEventWeather, clearWeatherCache } from '../src/services/weatherService.js';

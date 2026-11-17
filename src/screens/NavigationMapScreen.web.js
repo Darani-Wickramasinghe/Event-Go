@@ -1,3 +1,4 @@
+// Shows venue directions and opens the destination in an external map on web.
 import { useState } from 'react';
 import { Action, Copy, EmptyState, Page, Panel } from '../components/FlowUI';
 import VenueMap from '../components/VenueMap';

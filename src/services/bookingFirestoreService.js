@@ -1,3 +1,4 @@
+// Saves, cancels, and checks in cloud bookings using Firestore transactions.
 /**
  * Booking & Ticket Firestore Service
  * Connects reservations, tickets, cancellations, and QR check-in to Cloud Firestore.
@@ -19,6 +20,7 @@ import { validateAndCheckInTicket } from './ticketService.js';
 
 export const BOOKINGS_COLLECTION = 'bookings';
 
+// Make sure the active Firebase user matches the profile carrying out the action.
 function requireCloudSession(profile) {
   if (!db || !auth?.currentUser || auth.currentUser.uid !== profile?.uid) {
     throw new Error('Log in again to sync your reservations.');
@@ -27,6 +29,7 @@ function requireCloudSession(profile) {
 
 export async function saveBookingToFirestore(booking, profile) {
   requireCloudSession(profile);
+  // Use the booking ID as the document ID so repeating a request can return the same booking.
   const bookingRef = doc(db, BOOKINGS_COLLECTION, booking.id);
   return runTransaction(db, async (transaction) => {
     const snapshot = await transaction.get(bookingRef);
@@ -70,11 +73,13 @@ export async function checkInTicketInFirestore(event, ticketCode, session) {
   const code = typeof ticketCode === 'string' ? ticketCode.trim() : '';
   if (!code) throw new Error('Invalid ticket code.');
 
+  // Find the ticket in bookings for this event using current data from Firestore.
   const bookings = await getDocsFromServer(query(collection(db, BOOKINGS_COLLECTION), where('eventId', '==', event.id)));
   const match = bookings.docs.find((snapshot) => snapshot.data().tickets?.some((ticket) => ticket.code === code));
   if (!match) throw new Error('Ticket code was not found for this event.');
 
   return runTransaction(db, async (transaction) => {
+    // Read the booking again inside the transaction to catch another scan of the same ticket.
     const snapshot = await transaction.get(match.ref);
     const existing = snapshot.exists() ? [{ ...snapshot.data(), id: snapshot.id }] : [];
     const result = validateAndCheckInTicket(session, event, code, existing);

@@ -1,3 +1,4 @@
+// Builds the organizer inbox from booking activity and notification preferences.
 export const organizerAlertTypes = [
   { key: 'reservation', label: 'New reservations', title: 'New reservation', icon: 'ticket-outline' },
   { key: 'cancellation', label: 'Reservation cancellations', title: 'Reservation cancelled', icon: 'close-circle-outline' },
@@ -12,6 +13,7 @@ export function organizerInbox(data, events, preferences) {
   if (preferences.muted) return [];
   const eventById = new Map(events.map((event) => [event.id, event]));
   const readIds = new Set(preferences.readIds);
+  // Index activity by ID so updates to the same booking or ticket do not create duplicate rows.
   const activities = new Map((data.organizerActivity ?? []).map((activity) => [activity.id, activity]));
 
   for (const booking of data.bookings ?? []) {

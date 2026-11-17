@@ -1,3 +1,4 @@
+// Checks whether the current GPS position is inside a chosen distance from the venue.
 import { useEffect, useRef, useState } from 'react';
 import { Alert, Platform } from 'react-native';
 import { haversineKm } from '../utils/distance';

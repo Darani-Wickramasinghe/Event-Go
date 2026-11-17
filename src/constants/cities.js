@@ -1,3 +1,4 @@
+// Lists city names and coordinates used when users select a location manually.
 // Used when location permission is denied or unavailable.
 export const MANUAL_CITIES = [
   { name: 'Kelaniya', latitude: 6.9553, longitude: 79.922 },

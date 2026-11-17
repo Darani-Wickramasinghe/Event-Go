@@ -1,3 +1,4 @@
+// Builds a shareable event link and opens the platform's sharing options.
 import { Platform, Share } from 'react-native';
 
 export async function shareEventLink(event) {

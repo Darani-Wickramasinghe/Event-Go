@@ -1,3 +1,4 @@
+// Matches events against search text, categories, and selected filters.
 export const defaultFilters = {
   city: '',
   from: '',

@@ -1,3 +1,4 @@
+// Provides simple test helpers and an asset import substitute when running under Node.
 if (typeof globalThis.require === 'undefined') {
   globalThis.require = (id) => ({ uri: id });
 }

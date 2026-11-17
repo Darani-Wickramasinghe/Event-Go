@@ -1,3 +1,4 @@
+// Builds attendee notices and reminders from booking and event changes.
 /**
  * Eventora Notification Generation & Dispatch Engine
  * Reuses existing Eventora event and registration data.

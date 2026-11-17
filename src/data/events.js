@@ -1,3 +1,4 @@
+// Defines sample events and helps format event dates, prices, and cover images.
 export const categories = [
   { label: 'All', icon: 'apps-outline', color: '#7460FF' },
   { label: 'Music', icon: 'musical-notes-outline', color: '#FA9660' },

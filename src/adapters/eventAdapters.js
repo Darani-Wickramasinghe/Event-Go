@@ -1,3 +1,4 @@
+// Converts Eventora events into the date, time, and location fields used by the weather service.
 export const VENUE_TIMEZONE = 'Asia/Colombo';
 const UTC_OFFSET = '+05:30';
 
